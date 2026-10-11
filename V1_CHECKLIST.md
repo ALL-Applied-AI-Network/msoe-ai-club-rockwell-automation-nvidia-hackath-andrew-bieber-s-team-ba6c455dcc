@@ -17,9 +17,9 @@ Assign one accountable owner and an evidence link to every deliverable.
 - [x] Confirm manual joint movement in the GUI.
 - [x] Run the 33 starter host tests successfully.
 - [x] Prepare `ROSIE_QUICKSTART.md` with the working desktop procedure.
-- [ ] Confirm everyone has repository and competition-workspace access.
-- [ ] Confirm the complete roster, owners, and shared `integration` branch.
-- [ ] Have a second teammate reproduce the environment and open the scene.
+- [x] Confirm everyone has repository and competition-workspace access.
+- [x] Confirm the complete roster, owners, and shared `integration` branch.
+- [x] Have a second teammate reproduce the environment and open the scene.
 - [ ] Review the supplied camera/gripper calibration and obtain matching real-cell files.
 - [ ] Verify the dependencies/model setup required by the selected perception path.
 - [ ] Finalize and submit `TEAM_PLAN.md` by October 14, 11:59 PM CT.
@@ -44,10 +44,10 @@ Staff operate equipment; the visit does not authorize changes to cameras or cont
 
 - [x] Prepare a separate known-position one-cube diagnostic (`demo_pick.py`).
 - [x] Check the diagnostic's 552 numerical IK targets.
-- [ ] Add the reviewed diagnostic to the repository through the contribution workflow.
-- [ ] Run the diagnostic on Rosie and inspect its logs and `demo_report.json`.
-- [ ] Confirm the cube actually grips, lifts, and reaches the destination.
-- [ ] Save a demonstration and reproduction instructions in the approved locations.
+- [X] Add the reviewed diagnostic to the repository through the contribution workflow.
+- [X] Run the diagnostic on Rosie and inspect its logs and `demo_report.json`.
+- [X] Confirm the cube actually grips, lifts, and reaches the destination.
+- [X] Save a demonstration and reproduction instructions in the approved locations.
 
 Done when: the object moves successfully and the evidence verifies pickup and
 placement. This diagnostic is not a camera-based result or the full starter benchmark.
