@@ -1,0 +1,43 @@
+# Python environments and caches
+.venv/
+venv/
+venvs/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local secrets and machine-specific configuration
+.env
+.env.*
+!.env.example
+
+# Isaac Sim and generated outputs
+runs/
+frames*/
+gripper_shots/
+textures/
+*.usd
+*.usdc
+
+
+
+# Models, datasets, and experiment trackers
+models/
+checkpoints/
+data/
+wandb/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local archives
+*.zip
