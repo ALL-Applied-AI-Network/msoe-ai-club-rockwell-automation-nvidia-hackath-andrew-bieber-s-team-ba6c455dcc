@@ -23,10 +23,21 @@ Target: a complete, submittable V1 within the first 10 days, subject to twin ava
 
 ## Compute and Requested Tools
 
-### Compute: MSOE Rosie
-We plan to use Rosie for synthetic-data generation, model training, and evaluation. We expect it to meet our V1 compute needs, pending confirmation that the supplied Isaac Sim twin can run in the available environment.
+### Compute
+Request: approximately $60 in Brev credits for initial setup,
+baseline reproduction, and repeated simulation tests.
 
-No Brev credits requested initially. We will update the request if compatibility or access requires alternative compute.
+We estimate 10 active GPU hours using the Isaac Sim launchable,
+preferably RTX PRO 6000, with L40S as a fallback. We need access
+during the first week.
+
+We will record hardware, runtime, and credits used, and stop the
+instance between sessions. The first complete run will determine
+whether our estimate needs adjustment.
+
+We also request MSOE Rosie/GB10 access when available. We will
+evaluate compatibility with the supplied starter before moving
+workloads there.
 
 ### ChatGPT Pro: Three Individual Plans
 - Recipients: Andrew Bieber and two teammates taking substantial implementation ownership (names TBD).
