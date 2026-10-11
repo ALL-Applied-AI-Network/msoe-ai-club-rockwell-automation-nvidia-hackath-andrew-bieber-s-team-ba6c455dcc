@@ -20,8 +20,8 @@ gripper_shots/
 textures/
 *.usd
 *.usdc
-*.log
-*.mp4
+
+
 
 # Models, datasets, and experiment trackers
 models/
