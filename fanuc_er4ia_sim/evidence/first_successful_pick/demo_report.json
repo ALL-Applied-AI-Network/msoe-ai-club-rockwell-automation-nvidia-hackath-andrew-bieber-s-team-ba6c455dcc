@@ -1,0 +1,37 @@
+{
+  "test": "known_position_single_cube",
+  "perception_used": false,
+  "pickup_verified": true,
+  "placement_verified": true,
+  "complete": true,
+  "error": null,
+  "max_numerical_ik_error_mm": 0.09989539456986804,
+  "initial_cube_origin_world_m": [
+    0.3657689392566681,
+    0.0727819874882698,
+    0.894899845123291
+  ],
+  "tip_errors_mm": {
+    "approach": 0.14664496419670395,
+    "descend": 0.09804995092034821,
+    "close": 0.11501537126667515,
+    "dwell": 0.11265184869582355,
+    "lift": 0.23633766267743977,
+    "carry": 0.06435660332550709,
+    "lower": 0.11076834721473489,
+    "release": 0.06605118428818806,
+    "settle": 0.06603500188846845,
+    "retreat": 0.19234098067635785,
+    "home": 0.14836950868433813
+  },
+  "lift_height_mm": 129.86767292022705,
+  "final_cube_centre_world_m": [
+    0.28003278374671936,
+    0.10001133382320404,
+    0.8999001383781433
+  ],
+  "placement_xy_error_mm": 0.03468760005214753,
+  "placement_z_error_mm": 0.00011920928955078125,
+  "tilt_deg": 0.0,
+  "yaw_error_deg_mod90": 0.08632475882768631
+}
