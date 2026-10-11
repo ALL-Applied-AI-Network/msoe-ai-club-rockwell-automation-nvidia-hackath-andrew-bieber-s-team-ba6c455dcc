@@ -1,79 +1,135 @@
 # Team Plan — Draft
 
 ## Team
+
 - Name: TBD
 - Mentor: Andrew Bieber
-- Members: Kshitij Batra, Peter Gerrits, Asher Jaenchen, Zachary Millmann, Evan Ohme, Khalil Spires
+- Listed members: Kshitij Batra, Peter Gerrits, Asher Jaenchen, Zachary Millmann,
+  Evan Ohme, Khalil Spires
+- Confirm the complete roster and assign accountable owners at the team meeting.
 
-## Challenge
+## Challenge and Problem
+
 Dataset 3: Grasping and Sorting.
 
-## Problem
-Fixed robot motions fail when objects are in unexpected positions.
-We want the arm to find supported objects and move them to the correct destinations.
+Fixed robot motions can fail when objects appear in unexpected positions.
+We want the supplied FANUC arm to find supported objects and move them to the
+correct destinations. During the lab visit, confirm the operator intervention
+or delay this would reduce and how the current process handles misplaced parts.
 
 ## First Working Version
-- Use the supplied digital twin and existing gripper fingers.
-- Start with one object, then add a second category for sorting.
-- Test separated objects at varied positions.
-- Measure successful picks, correct placements, and cycle time against a baseline.
-- Demonstrate the solution on the real arm during supervised testing.
 
-Target: a complete, submittable V1 within the first 10 days, subject to twin availability and physical testing access.
+- Reuse the supplied digital twin, existing gripper fingers, and starter code.
+- Verify one known-position simulated cube pick before adding camera-based targeting.
+- Start sorting with two colour groups of the same supported cube shape.
+- Use separated objects, controlled lighting, and defined destinations.
+- Check pickup and placement from evidence and record failures and uncertainty.
+- Measure complete-task success and cycle time against an agreed baseline.
+- Aim to demonstrate the approved task on the real arm during supervised testing.
+
+**Target:** October 20, subject to test access and experimental results.
+Physical object compatibility, destinations, and command access must be confirmed.
+
+The starter's full six-cube stacking benchmark remains intact and separate from
+our incremental diagnostics. A one-cube success is not completion of that benchmark.
+
+## Current Evidence — October 10
+
+Rosie supports interactive scene viewing, manual joint movement, and simulated
+camera capture in Andrew's account. The 33 host tests pass. The one-cube diagnostic
+passes numerical IK checks; an actual simulated grasp is the next test.
+
+The complete perception/execution pipeline, Cosmos loading, real-arm integration,
+and reproducibility in another teammate's account are not yet verified.
+
+## Technical Approach
+
+Use camera observations, calibrated geometry, the supplied kinematics and motion
+code, and suitable existing perception models. No custom model training is required
+for the first mechanics test. Train or fine-tune only if measured failures justify it.
+
+After the basic loop works, evaluate in-context examples for adapting sorting
+rules. Test on held-out arrangements and compare with a no-example baseline.
+Do not rely on a language model to supply precise motor commands or assume an
+unfamiliar object is physically graspable.
 
 ## Compute and Requested Tools
 
-### Compute
-Request: approximately $60 in Brev credits for initial setup,
-baseline reproduction, and repeated simulation tests.
+### Compute: Rosie First; Brev Contingency
 
-We estimate 10 active GPU hours using the Isaac Sim launchable,
-preferably RTX PRO 6000, with L40S as a fallback. We need access
-during the first week.
+Rosie is our current development environment for simulation and evaluation.
+Initial viewing, capture, and manual motion work; full-pipeline performance,
+model compatibility, and concurrent team access still need testing.
 
-We will record hardware, runtime, and credits used, and stop the
-instance between sessions. The first complete run will determine
-whether our estimate needs adjustment.
+Retain an approximately **$60 Brev contingency request**, subject to approval,
+if Rosie availability or compatibility blocks an essential workload. Select the
+instance and estimate active hours from the actual workload and current quote;
+no fixed hourly rate or hardware requirement is assumed here.
 
-We also request MSOE Rosie/GB10 access when available. We will
-evaluate compatibility with the supplied starter before moving
-workloads there.
+Record environment versions, runtime, and any credits used. End idle allocations
+and stop paid instances between sessions. Request additional resources only with
+a specific blocker or measured need. Initial setup does not establish support for
+all future model-training workloads.
 
 ### ChatGPT Pro: Three Individual Plans
-- Recipients: Andrew Bieber and two teammates taking substantial implementation ownership (names TBD).
-- Account preference: Andrew would appreciate having Pro provisioned on his existing personal ChatGPT account, which already contains the project context, planning discussions, and mentoring preparation. This would preserve continuity and avoid rebuilding that context in a separate account.
-- Duration: one month during the competition.
-- Requested budget: $200 per person; $600 total, subject to organizer approval and current pricing.
 
-These plans would support sustained work on unfamiliar simulation and robotics tools, code development and review, debugging, and integration. Andrew would also use the tool to prepare clear explanations and manageable tasks for teammates. Each recipient would use their own account and remain responsible for understanding and verifying generated work.
+- Recipients: Andrew Bieber and two teammates taking substantial implementation
+  ownership; teammate names TBD.
+- Duration: one month during the competition.
+- Proposed budget: $200 per person; $600 total, subject to organizer approval and
+  verification of current pricing/provisioning.
+- Preference: provision Andrew's existing personal account if supported, to preserve
+  project context. Confirm the organizer's account/provisioning process.
+
+These plans support code development and review, debugging, robotics-tool learning,
+integration, and mentoring preparation. Each recipient uses their own account and
+is responsible for understanding and verifying generated work.
 
 ### ChatGPT Plus
-No paid Plus plans requested. Teammates will check eligibility for the student promotion reported by the team; availability and terms remain to be verified. Our project plan does not depend on that promotion.
 
-### Additional Team Requests
-Teammates can add justified needs before the team review deadline.
+No paid Plus plans requested. Any student promotion must be verified individually;
+the project does not depend on a promotion being available.
 
-| Requested tool or resource | Person requesting | Purpose / blocker addressed | Quantity / duration | Estimated cost |
+### Additional Requests
+
+| Resource | Owner | Purpose or blocker | Quantity / duration | Estimated cost |
 | --- | --- | --- | --- | --- |
 | TBD | TBD | TBD | TBD | TBD |
 
-Andrew will review additions and consolidate the final resource request.
+Andrew reviews and consolidates justified requests before submission.
 
-## Technical Support Needed
-- Digital twin, starter code, camera calibration, and object details.
-- Guidance on camera-to-robot coordinates and the approved physical-arm interface.
-- An early supervised test and a later validation session.
+## Early Lab Visit
 
-## Questions
-- Is a working pick-and-place example supplied?
-- How can our software command the physical arm?
-- Which objects can the existing fingers handle?
-- Are multiple camera views required?
-- Can the supplied twin run on our Rosie environment?
-- When can we test on the real arm?
-- Is the plan deadline October 13 or October 14?
+Assign three students distinct evidence-gathering roles during an arranged,
+staff-supervised visit:
 
-## Team Review
-Suggestions and additional resource requests due: Monday, October 12, 6 PM CT.
-Andrew reviews changes and submits the final plan.
+| Role | Required result |
+| --- | --- |
+| Cameras and calibration | Actual camera views, sample images, data access method, calibration files/contact |
+| Robot interface and access | Approved command method, documentation/example or contact, supervised-test booking process |
+| Objects and workflow | Supported objects, destinations, normal-cycle observations, operator problem and available timing evidence |
 
+Staff operate the equipment. Obtain recording permission. Do not move cameras,
+change programs, introduce unapproved objects, or deliberately create failures.
+Bring back confirmed facts, evidence links, and unresolved questions with contacts.
+
+## Remaining Questions
+
+- Which real objects can the existing fingers handle, and are our proposed colour groups suitable?
+- What approved interface can our software use, with which units and coordinate frames?
+- Which camera streams and current calibration files can we access? Are multiple views required?
+- What feedback is available to check real pickup and placement?
+- When can we book an early supervised test and a later validation session?
+- Can a second teammate reproduce our setup and can the complete pipeline run within our resource limits?
+
+The supplied starter includes grasp execution code; our next step is verifying it
+in our environment. The organizer instructions supplied in the repository state
+the plan deadline is October 14, so the earlier October 13/14 question is resolved.
+
+## Team Review and Submission
+
+- Suggestions and resource requests: **Monday, October 12, 6 PM CT**.
+- Team plan due: **Wednesday, October 14, 11:59 PM CT**.
+- Final submission due: **Sunday, November 1, 11:59 PM CT**.
+
+Andrew consolidates the plan and submits through the organizer's workspace.
