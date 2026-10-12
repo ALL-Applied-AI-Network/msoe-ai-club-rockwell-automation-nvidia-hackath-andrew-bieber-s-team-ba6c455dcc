@@ -1,135 +1,106 @@
-# Team Plan — Draft
+# IRIS: Intelligent Robotic Identification and Sorting
 
 ## Team
 
-- Name: TBD
-- Mentor: Andrew Bieber
-- Listed members: Kshitij Batra, Peter Gerrits, Asher Jaenchen, Zachary Millmann,
-  Evan Ohme, Khalil Spires
+- Team: Andrew Bieber’s Team
+- Mentor and team lead: Andrew Bieber
+- Listed members: Kshitij Batra, Peter Gerrits, Asher Jaenchen, Zachary Millmann, Evan Ohme, Khalil Spires
 - Confirm the complete roster and assign accountable owners at the team meeting.
 
 ## Challenge and Problem
 
-Dataset 3: Grasping and Sorting.
+**Dataset 3: Grasping and Sorting**
 
-Fixed robot motions can fail when objects appear in unexpected positions.
-We want the supplied FANUC arm to find supported objects and move them to the
-correct destinations. During the lab visit, confirm the operator intervention
-or delay this would reduce and how the current process handles misplaced parts.
+Fixed robot motions fail when objects appear in unexpected positions. IRIS will give the supplied FANUC arm the ability to perceive an unsorted workspace, identify and locate supported objects, pick them one at a time, and place them into the correct sorting destinations.
+
+During the lab visit, the team will confirm the real operator problem, supported objects, sorting rules, and the intervention or delay our solution could reduce.
 
 ## First Working Version
 
-- Reuse the supplied digital twin, existing gripper fingers, and starter code.
-- Verify one known-position simulated cube pick before adding camera-based targeting.
-- Start sorting with two colour groups of the same supported cube shape.
-- Use separated objects, controlled lighting, and defined destinations.
-- Check pickup and placement from evidence and record failures and uncertainty.
-- Measure complete-task success and cycle time against an agreed baseline.
-- Aim to demonstrate the approved task on the real arm during supervised testing.
+- Reuse the working digital twin, gripper, camera views, and starter code.
+- Replace predetermined object coordinates with camera-estimated coordinates.
+- Begin with separated cubes sorted into two colour groups.
+- Detect, pick, and sort every object in the workspace.
+- Record pickup success, placement success, cycle time, and uncertainty.
+- Move low-confidence objects to a defined review location.
+- Demonstrate the validated task on the physical arm during supervised testing.
 
-**Target:** October 20, subject to test access and experimental results.
-Physical object compatibility, destinations, and command access must be confirmed.
+**Target:** October 20, subject to physical-cell access and experimental results.
 
-The starter's full six-cube stacking benchmark remains intact and separate from
-our incremental diagnostics. A one-cube success is not completion of that benchmark.
+Physical object compatibility, destinations, and command access must still be confirmed.
 
-## Current Evidence — October 10
+## Current Evidence — October 11
 
-Rosie supports interactive scene viewing, manual joint movement, and simulated
-camera capture in Andrew's account. The 33 host tests pass. The one-cube diagnostic
-passes numerical IK checks; an actual simulated grasp is the next test.
+The complete Isaac Sim digital twin is running with the FANUC robot, gripper, workspace, and camera views. The 33 host tests pass.
 
-The complete perception/execution pipeline, Cosmos loading, real-arm integration,
-and reproducibility in another teammate's account are not yet verified.
+The robot has completed an actual simulated pick-and-place cycle, including approach, descent, grasp, lift, carry, placement, release, and retreat. The cube rose 129.9 mm, and the automated report confirmed both pickup and placement.
+
+The next milestone is replacing predetermined object coordinates with camera-derived coordinates and extending the demonstration from one object to multi-object sorting.
+
+Physical-cell integration and reproducibility in another teammate’s environment are not yet verified.
 
 ## Technical Approach
 
-Use camera observations, calibrated geometry, the supplied kinematics and motion
-code, and suitable existing perception models. No custom model training is required
-for the first mechanics test. Train or fine-tune only if measured failures justify it.
+We will use the digital twin’s camera observations, calibrated geometry, supplied kinematics and motion code, and suitable pretrained open-source vision models.
 
-After the basic loop works, evaluate in-context examples for adapting sorting
-rules. Test on held-out arrangements and compare with a no-example baseline.
-Do not rely on a language model to supply precise motor commands or assume an
-unfamiliar object is physically graspable.
+We will evaluate existing detection, segmentation, and vision-language models before training a custom model for an already well-studied problem. We will train or fine-tune only if measured failures justify it.
+
+After the basic sorting loop works, we may evaluate in-context examples for identifying miscellaneous objects or adapting sorting rules. Low-confidence objects will be moved to a safe review location. A language model will not provide precise motor commands or assume that an unfamiliar object is physically graspable.
+
+Testing will use held-out object arrangements and measure complete-task success, pickup success, placement success, uncertainty, and cycle time.
 
 ## Compute and Requested Tools
 
-### Compute: Rosie First; Brev Contingency
+### Compute: BrevDell GB10 at MSOE (Rosie)
 
-Rosie is our current development environment for simulation and evaluation.
-Initial viewing, capture, and manual motion work; full-pipeline performance,
-model compatibility, and concurrent team access still need testing.
+Request approximately **20–30 GPU-hours** to run the digital twin, evaluate pretrained vision models, generate synthetic images, and test the complete pick-and-sort pipeline.
 
-Retain an approximately **$60 Brev contingency request**, subject to approval,
-if Rosie availability or compatibility blocks an essential workload. Select the
-instance and estimate active hours from the actual workload and current quote;
-no fixed hourly rate or hardware requirement is assumed here.
+Additional compute will be requested only if model fine-tuning or larger-scale synthetic-data generation becomes necessary.
 
-Record environment versions, runtime, and any credits used. End idle allocations
-and stop paid instances between sessions. Request additional resources only with
-a specific blocker or measured need. Initial setup does not establish support for
-all future model-training workloads.
+### AI Agent Tools
 
-### ChatGPT Pro: Three Individual Plans
+We will begin with the free Gemini models. Several teammates may also qualify for the free ChatGPT Plus college-student promotion, leaving only the primary developers needing additional access.
 
-- Recipients: Andrew Bieber and two teammates taking substantial implementation
-  ownership; teammate names TBD.
-- Duration: one month during the competition.
-- Proposed budget: $200 per person; $600 total, subject to organizer approval and
-  verification of current pricing/provisioning.
-- Preference: provision Andrew's existing personal account if supported, to preserve
-  project context. Confirm the organizer's account/provisioning process.
+Request **three $100/month Codex plans** for Andrew Bieber and the two students leading vision and robot integration. They will use Codex to develop, debug, and test these components in parallel.
 
-These plans support code development and review, debugging, robotics-tool learning,
-integration, and mentoring preparation. Each recipient uses their own account and
-is responsible for understanding and verifying generated work.
-
-### ChatGPT Plus
-
-No paid Plus plans requested. Any student promotion must be verified individually;
-the project does not depend on a promotion being available.
-
-### Additional Requests
-
-| Resource | Owner | Purpose or blocker | Quantity / duration | Estimated cost |
-| --- | --- | --- | --- | --- |
-| TBD | TBD | TBD | TBD | TBD |
-
-Andrew reviews and consolidates justified requests before submission.
+Each recipient will use an individual account and remain responsible for understanding, testing, and verifying generated work.
 
 ## Early Lab Visit
 
-Assign three students distinct evidence-gathering roles during an arranged,
-staff-supervised visit:
+A three-student first-year subteam has been assigned distinct evidence-gathering roles for an arranged, staff-supervised lab visit.
 
 | Role | Required result |
-| --- | --- |
-| Cameras and calibration | Actual camera views, sample images, data access method, calibration files/contact |
-| Robot interface and access | Approved command method, documentation/example or contact, supervised-test booking process |
-| Objects and workflow | Supported objects, destinations, normal-cycle observations, operator problem and available timing evidence |
+|---|---|
+| Cameras and calibration | Actual camera views, sample images, data-access method, and calibration files or contact |
+| Robot interface and access | Approved command method, documentation or contact, and supervised-testing process |
+| Objects and workflow | Supported objects, sorting destinations, normal-cycle observations, operator problem, and timing evidence |
 
-Staff operate the equipment. Obtain recording permission. Do not move cameras,
-change programs, introduce unapproved objects, or deliberately create failures.
-Bring back confirmed facts, evidence links, and unresolved questions with contacts.
+Staff will operate the equipment. Students will obtain recording permission and will not move cameras, change programs, introduce unapproved objects, or deliberately create failures.
+
+Each student will return with confirmed facts, evidence links, unresolved questions, and the appropriate contacts. The team may supplement the collected data with synthetic images generated in Isaac Sim.
+
+## Mentor Support Requested
+
+- **NVIDIA:** Isaac Sim and computer-vision integration.
+- **Rockwell Automation:** Physical robot interface, workcell requirements, and safety.
+- **Emulate3D / CSI:** Transferring the digital-twin solution to the real workcell.
 
 ## Remaining Questions
 
-- Which real objects can the existing fingers handle, and are our proposed colour groups suitable?
-- What approved interface can our software use, with which units and coordinate frames?
-- Which camera streams and current calibration files can we access? Are multiple views required?
-- What feedback is available to check real pickup and placement?
-- When can we book an early supervised test and a later validation session?
-- Can a second teammate reproduce our setup and can the complete pipeline run within our resource limits?
-
-The supplied starter includes grasp execution code; our next step is verifying it
-in our environment. The organizer instructions supplied in the repository state
-the plan deadline is October 14, so the earlier October 13/14 question is resolved.
+- Which objects can the existing fingers reliably grasp?
+- Are two cube colours suitable for the first sorting groups?
+- What approved interface can our software use, and what units and coordinate frames does it expect?
+- Which camera streams and calibration files can we access?
+- What feedback is available to verify real pickup and placement?
+- When can we schedule an early supervised test and a later validation session?
+- How will successful picking and sorting be evaluated?
+- Are pretrained models, synthetic data, and vision-language models allowed?
+- Can another teammate reproduce the simulation environment?
 
 ## Team Review and Submission
 
-- Suggestions and resource requests: **Monday, October 12, 6 PM CT**.
-- Team plan due: **Wednesday, October 14, 11:59 PM CT**.
-- Final submission due: **Sunday, November 1, 11:59 PM CT**.
+- Suggestions and resource requests: **Monday, October 12, 6:00 PM CT**
+- Team plan due: **Wednesday, October 14, 11:59 PM CT**
+- Final submission due: **Sunday, November 1, 11:59 PM CT**
 
-Andrew consolidates the plan and submits through the organizer's workspace.
+Andrew will consolidate the plan and submit it through the organizer’s workspace.

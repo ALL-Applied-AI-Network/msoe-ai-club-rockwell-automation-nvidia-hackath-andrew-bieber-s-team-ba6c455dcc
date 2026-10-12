@@ -63,7 +63,7 @@ Use **success / failure / uncertain**. This small observation sample informs dev
 - [ ] List missing items with the person to follow up with; never guess an answer.
 - [ ] Note obvious differences between the real cell and twin, especially objects, gripper, cameras, and table layout.
 - [ ] Agree who will request the supervised test slot.
-
+- [ ] look at the power output, consumption and motor speeds.
 ## Return to the team
 
 Each owner supplies a short note: **confirmed facts → evidence/file links → unresolved questions and contact**. Store media in the approved data location, not as large Git commits. Andrew and the implementation owners review the findings and select the first supported physical task.
