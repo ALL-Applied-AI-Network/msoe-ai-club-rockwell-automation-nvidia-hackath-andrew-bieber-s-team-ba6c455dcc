@@ -22,7 +22,7 @@ Assign one accountable owner and an evidence link to every deliverable.
 - [x] Have a second teammate reproduce the environment and open the scene.
 - [ ] Review the supplied camera/gripper calibration and obtain matching real-cell files.
 - [ ] Verify the dependencies/model setup required by the selected perception path.
-- [ ] Finalize and submit `TEAM_PLAN.md` by October 14, 11:59 PM CT.
+- [x] Finalize and submit `TEAM_PLAN.md` by October 14, 11:59 PM CT.
 
 Done when: setup is reproducible, ownership is clear, and remaining dependencies
 are documented. A working viewer does not prove model or grasp execution.
