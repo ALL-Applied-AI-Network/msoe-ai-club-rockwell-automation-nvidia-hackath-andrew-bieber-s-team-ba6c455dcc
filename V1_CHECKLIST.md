@@ -55,10 +55,10 @@ placement. This diagnostic is not a camera-based result or the full starter benc
 ## 4. Give the Robot Eyes
 
 - [x] Demonstrate image capture from the twin.
-- [ ] Reuse the supplied perception/geometry components where suitable.
-- [ ] Find the supported cube in a fresh image.
-- [ ] Convert its observed position into robot coordinates with explicit units and frame.
-- [ ] Estimate the cube orientation and align the gripper.
+- [x] Reuse the supplied perception/geometry components where suitable.
+- [x] Find the supported cube in a fresh image.
+- [x] Convert its observed position into robot coordinates with explicit units and frame.
+- [x] Estimate the cube orientation and align the gripper.
 - [ ] Complete camera-based picks across varied starting positions.
 - [ ] Reject missing, unsupported, or uncertain detections.
 
