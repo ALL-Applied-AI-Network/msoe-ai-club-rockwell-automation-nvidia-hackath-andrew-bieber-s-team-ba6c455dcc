@@ -8,6 +8,10 @@ dumps it at a fixed location, returns home, and re-detects before the next pick.
 Default mode is perception-only. Pixel targets are projected with the depth
 camera (or an optional --homography), and checked against simulation bodies.
 Robot motion requires --execute; validate the dry-run coordinates first.
+
+Caps use a separate, tunable fingertip height. After setdown the fingers open,
+slide sideways out of the cap profile, and only then retreat vertically. This
+keeps the proven cube trajectory unchanged while testing the cap-release fix.
 """
 
 from __future__ import annotations
@@ -141,6 +145,7 @@ def segments(
     drop_xy: np.ndarray,
     drop_z: float,
     jaw_close: float,
+    release_slide: float = 0.0,
 ) -> list[tuple[str, np.ndarray, np.ndarray, float, float, float, np.ndarray | None]]:
     p = np.array([target.world_xy[0], target.world_xy[1], pick_z])
     d = np.array([drop_xy[0], drop_xy[1], drop_z])
@@ -149,7 +154,7 @@ def segments(
     if np.dot(target.spread_dir, destination) < 0:
         destination = -destination
     opened = C.JAW_OPEN
-    return [
+    phases = [
         ("approach", home, up, 1.2, opened, opened, target.spread_dir),
         ("descend", up, p, 0.8, opened, opened, target.spread_dir),
         ("close", p, p, 0.6, opened, jaw_close, target.spread_dir),
@@ -159,9 +164,29 @@ def segments(
         ("lower", above, d, 0.8, jaw_close, jaw_close, destination),
         ("release", d, d, 0.6, jaw_close, opened, destination),
         ("settle", d, d, 0.6, opened, opened, destination),
-        ("retreat", d, above, 0.8, opened, opened, destination),
-        ("home", above, home, 1.1, opened, opened, None),
     ]
+    if release_slide > 0.0:
+        # Move perpendicular to the open jaws while staying at setdown height.
+        # A vertical retreat from inside the cap can re-hook it in the finger
+        # scallops; this sideways move clears the cap before lifting.
+        escape_direction = np.array([destination[1], -destination[0], 0.0])
+        escaped = d + release_slide * escape_direction
+        escaped_above = escaped + [0.0, 0.0, 0.13]
+        phases.extend(
+            [
+                ("slide_release", d, escaped, 0.6, opened, opened, destination),
+                ("retreat", escaped, escaped_above, 0.8, opened, opened, destination),
+                ("home", escaped_above, home, 1.1, opened, opened, None),
+            ]
+        )
+    else:
+        phases.extend(
+            [
+                ("retreat", d, above, 0.8, opened, opened, destination),
+                ("home", above, home, 1.1, opened, opened, None),
+            ]
+        )
+    return phases
 
 
 def plan_trajectory(
@@ -174,6 +199,7 @@ def plan_trajectory(
     drop_xy: np.ndarray,
     drop_z: float,
     jaw_close: float,
+    release_slide: float = 0.0,
 ) -> tuple[list[tuple[str, list[tuple[np.ndarray, float, np.ndarray]]]], float]:
     down = np.array([0.0, 0.0, -1.0])
     q = initial.copy()
@@ -191,7 +217,7 @@ def plan_trajectory(
     phases = []
     worst = 0.0
     for name, p0, p1, duration, j0, j1, direction in segments(
-        target, home, pick_z, drop_xy, drop_z, jaw_close
+        target, home, pick_z, drop_xy, drop_z, jaw_close, release_slide
     ):
         start = None
         if direction is not None and name in ("approach", "carry"):
@@ -346,7 +372,23 @@ def parse_args() -> argparse.Namespace:
         help="tool-tip Z while releasing into the dump area",
     )
     parser.add_argument("--jaw-close", type=float, default=float(C.CUBE_JAW_HALF_TARGET))
+    parser.add_argument(
+        "--cap-pick-height",
+        type=float,
+        default=0.005,
+        help="cap fingertip height above the work surface in meters (default: 0.005)",
+    )
+    parser.add_argument(
+        "--cap-release-slide",
+        type=float,
+        default=0.030,
+        help="open-gripper sideways escape distance after cap setdown (default: 0.030)",
+    )
     parser.add_argument("--object-match-radius", type=float, default=0.020)
+    parser.add_argument(
+        "--target-body",
+        help="diagnostic-only exact simulated body path, e.g. /World/SortCap0",
+    )
     parser.add_argument(
         "--target-type",
         choices=("cube", "cap", "vial", "any"),
@@ -665,21 +707,45 @@ def main() -> None:
                 if candidate_match is None:
                     continue
                 candidate_path = candidate_match[0].lower()
+                if args.target_body is not None and candidate_match[0] != args.target_body:
+                    continue
                 if args.target_type == "any" or args.target_type in candidate_path:
                     selected = (candidate, candidate_match)
                     break
             if selected is None:
+                requested = args.target_body or args.target_type
                 raise RuntimeError(
-                    f"No {args.target_type} detection matched a simulated object within "
+                    f"No {requested} detection matched a simulated object within "
                     f"{args.object_match_radius * 1000:.0f} mm; refusing to move"
                 )
             target, matched = selected
             body_path, body, before, match_distance = matched
+            object_type = (
+                "cap"
+                if "sortcap" in body_path.lower()
+                else "vial"
+                if "sortvial" in body_path.lower()
+                else "cube"
+            )
+            pick_z = args.pick_z
+            drop_z = args.drop_z
+            release_slide = 0.0
+            if object_type == "cap":
+                # This is the fingertip height, not the finger-pocket center.
+                # The pocket is 6.97 mm above the tip, so 5 mm is the safe
+                # first trial within the requested 5--10 mm range.
+                pick_z = float(C.SURFACE_DZ + args.cap_pick_height)
+                drop_z = pick_z
+                release_slide = args.cap_release_slide
             cycle_report.update(
                 selected_detection_id=target.detection_id,
                 selected_world_xy=target.world_xy.tolist(),
                 matched_body=body_path,
                 match_error_mm=match_distance * 1000,
+                object_type=object_type,
+                planned_pick_z=pick_z,
+                planned_drop_z=drop_z,
+                release_slide_m=release_slide,
             )
             phases, worst = plan_trajectory(
                 target,
@@ -687,10 +753,11 @@ def main() -> None:
                 home,
                 limits,
                 tool,
-                args.pick_z,
+                pick_z,
                 args.drop_xy,
-                args.drop_z,
+                drop_z,
                 args.jaw_close,
+                release_slide,
             )
             cycle_report["max_numerical_ik_error_mm"] = worst * 1000
             print(
@@ -698,6 +765,13 @@ def main() -> None:
                 f"{target.world_xy[1]:.3f}) body={body_path}",
                 flush=True,
             )
+            print(
+                f"[vision] type={object_type} fingertip_height_mm="
+                f"{(pick_z - C.SURFACE_DZ) * 1000:.1f} "
+                f"release_slide_mm={release_slide * 1000:.1f}",
+                flush=True,
+            )
+            release_reference = None
             for name, steps in phases:
                 print(f"[vision] {name.upper()}", flush=True)
                 for q, jaw, position in steps:
@@ -720,6 +794,22 @@ def main() -> None:
                     )
                     if not cycle_report["pickup_verified"]:
                         raise RuntimeError("Object did not lift; stopping before carry")
+                if object_type == "cap" and name == "settle":
+                    release_reference = np.asarray(body.get_world_pose()[0], dtype=float)
+                if object_type == "cap" and name == "retreat":
+                    released_pose = np.asarray(body.get_world_pose()[0], dtype=float)
+                    if release_reference is None:
+                        raise RuntimeError("Cap release reference was not recorded")
+                    followed_xy = float(
+                        np.linalg.norm(released_pose[:2] - release_reference[:2])
+                    )
+                    followed_z = float(released_pose[2] - release_reference[2])
+                    cycle_report["release_follow_xy_mm"] = followed_xy * 1000
+                    cycle_report["release_follow_z_mm"] = followed_z * 1000
+                    if followed_z > 0.015:
+                        raise RuntimeError(
+                            "Cap followed the vertical retreat; it is still caught in the gripper"
+                        )
             cycle_report["released"] = True
             # Let the dumped object settle before the next clean observation.
             for _ in range(30):
