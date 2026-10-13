@@ -5,8 +5,9 @@ The script creates a clean fixed RGB camera, sends frames to a persistent SAM 2
 worker, filters detections into reachable world XY targets, picks one target,
 dumps it at a fixed location, returns home, and re-detects before the next pick.
 
-Default mode is perception-only.  Robot motion requires both --execute and a
-validated --homography file.
+Default mode is perception-only. Pixel targets are projected with the depth
+camera (or an optional --homography), and checked against simulation bodies.
+Robot motion requires --execute; validate the dry-run coordinates first.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -66,11 +67,14 @@ def pixel_to_world(u: float, v: float, homography: np.ndarray) -> np.ndarray:
 
 
 def image_axis_to_world_spread(
-    u: float, v: float, yaw_image_deg: float, homography: np.ndarray
+    u: float,
+    v: float,
+    yaw_image_deg: float,
+    projector: Callable[[float, float], np.ndarray],
 ) -> np.ndarray:
     angle = math.radians(yaw_image_deg)
-    p0 = pixel_to_world(u, v, homography)
-    p1 = pixel_to_world(u + 20.0 * math.cos(angle), v + 20.0 * math.sin(angle), homography)
+    p0 = projector(u, v)
+    p1 = projector(u + 20.0 * math.cos(angle), v + 20.0 * math.sin(angle))
     object_axis = p1 - p0
     norm = np.linalg.norm(object_axis)
     if norm < 1e-9:
@@ -92,7 +96,7 @@ class PickTarget:
 
 def build_targets(
     detections: list[dict[str, Any]],
-    homography: np.ndarray,
+    projector: Callable[[float, float], np.ndarray],
     workspace: tuple[float, float, float, float],
     drop_xy: np.ndarray,
     drop_exclusion_radius: float,
@@ -102,7 +106,7 @@ def build_targets(
     rejected: list[dict[str, Any]] = []
     for detection in detections:
         u, v = (float(value) for value in detection["center_full_px"])
-        xy = pixel_to_world(u, v, homography)
+        xy = projector(u, v)
         reason = None
         if not (xmin <= xy[0] <= xmax and ymin <= xy[1] <= ymax):
             reason = "outside_workspace"
@@ -117,7 +121,7 @@ def build_targets(
                 pixel_uv=(u, v),
                 world_xy=xy,
                 spread_dir=image_axis_to_world_spread(
-                    u, v, float(detection["grasp_yaw_image_deg"]), homography
+                    u, v, float(detection["grasp_yaw_image_deg"]), projector
                 ),
                 area_px=int(detection["area_px"]),
                 confidence=float(detection["predicted_iou"])
@@ -311,17 +315,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sam-python", type=Path, default=Path.home() / "venvs/sam2-check/bin/python")
     parser.add_argument("--sam-worker", type=Path, default=base / "vision/sam2_worker.py")
     parser.add_argument("--model-id", default="facebook/sam2.1-hiera-small")
-    parser.add_argument("--points-per-side", type=int, default=32)
+    parser.add_argument("--points-per-side", type=int, default=48)
     parser.add_argument("--points-per-batch", type=int, default=32)
     parser.add_argument("--roi", help="Camera ROI as x1,y1,x2,y2 pixels; default is full frame.")
-    parser.add_argument("--min-area-px", type=int, default=180)
-    parser.add_argument("--max-area-fraction", type=float, default=0.12)
+    parser.add_argument("--min-area-px", type=int, default=100)
+    parser.add_argument("--max-area-fraction", type=float, default=0.08)
     parser.add_argument("--max-objects", type=int, default=30)
     parser.add_argument("--border-margin-px", type=int, default=3)
     parser.add_argument("--resolution", default="1280,720", help="width,height")
-    parser.add_argument("--camera-eye", default="0.30,0.0,2.20", help="world x,y,z")
-    parser.add_argument("--camera-target", default="0.30,0.0,1.00", help="world x,y,z")
-    parser.add_argument("--camera-focal-length", type=float, default=24.0)
+    parser.add_argument("--camera-eye", default="0.379,0.032,2.20", help="world x,y,z")
+    parser.add_argument("--camera-target", default="0.379,0.032,1.00", help="world x,y,z")
+    parser.add_argument("--camera-focal-length", type=float, default=50.0)
     parser.add_argument(
         "--workspace",
         default="0.05,0.58,-0.30,0.30",
@@ -342,7 +346,13 @@ def parse_args() -> argparse.Namespace:
         help="tool-tip Z while releasing into the dump area",
     )
     parser.add_argument("--jaw-close", type=float, default=float(C.CUBE_JAW_HALF_TARGET))
-    parser.add_argument("--object-match-radius", type=float, default=0.055)
+    parser.add_argument("--object-match-radius", type=float, default=0.020)
+    parser.add_argument(
+        "--target-type",
+        choices=("cube", "cap", "vial", "any"),
+        default="cube",
+        help="Simulation validation gate for the first object type to pick.",
+    )
     args = parser.parse_args()
     args.resolution = tuple(int(v) for v in parse_csv(args.resolution, 2, "--resolution"))
     args.camera_eye = parse_csv(args.camera_eye, 3, "--camera-eye")
@@ -353,24 +363,22 @@ def parse_args() -> argparse.Namespace:
         if args.drop_xy is None
         else np.asarray(parse_csv(args.drop_xy, 2, "--drop-xy"), dtype=float)
     )
-    if args.execute and args.homography is None:
-        parser.error("--execute requires a validated --homography file")
     return args
 
 
 def main() -> None:
     args = parse_args()
+    print("[vision] depth-coordinate validation revision (2026-10-13)", flush=True)
     homography = load_homography(args.homography)
-    if homography is None:
-        print("[vision] DRY RUN: no homography; masks/pixels only and no robot motion.", flush=True)
-    elif not args.execute:
+    if not args.execute:
         print("[vision] DRY RUN: world targets will be printed, but the robot will not move.", flush=True)
 
     ik.set_tool_axis(C.TOOL_AXIS)
     ik.set_spread_axis(C.FINGER_SPREAD_AXIS)
     tool = np.asarray(C.TOOL_AXIS) * C.TOOL_LENGTH
     limits = np.deg2rad([C.JOINT_LIMITS_DEG[f"J{i}"] for i in range(1, 7)])
-    home = np.array([0.30, 0.0, 0.24])
+    # Camera-clear observation/return pose, numerically checked against this arm.
+    home = np.array([0.12, -0.32, 0.38])
     down = np.array([0.0, 0.0, -1.0])
     initial = np.deg2rad([C.HOME_POSE_DEG[f"J{i}"] for i in range(1, 7)])
     initial, ok = ik.solve(initial, home, down, limits, tool_offset=tool)
@@ -402,11 +410,12 @@ def main() -> None:
     world = None
     sam = None
     rgb_annotator = None
+    depth_annotator = None
     render_product = None
     try:
         import omni.replicator.core as rep
         import omni.usd
-        from pxr import UsdPhysics
+        from pxr import Gf, Usd, UsdGeom, UsdPhysics
         from isaacsim.core.api import World
         from isaacsim.core.prims import SingleArticulation, SingleXFormPrim
         from isaacsim.core.utils.types import ArticulationAction
@@ -451,6 +460,22 @@ def main() -> None:
         )
         rgb_annotator = rep.annotators.get("rgb")
         rgb_annotator.attach(render_product)
+        depth_annotator = rep.annotators.get("distance_to_image_plane")
+        depth_annotator.attach(render_product)
+
+        camera_prim = UsdGeom.Camera(stage.GetPrimAtPath(str(camera.GetPath())))
+        if not camera_prim:
+            raise RuntimeError("Could not wrap the vision camera USD prim")
+        focal_length = float(camera_prim.GetFocalLengthAttr().Get())
+        horizontal_aperture = float(camera_prim.GetHorizontalApertureAttr().Get())
+        camera_to_world = UsdGeom.Xformable(camera_prim.GetPrim()).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default()
+        )
+        image_width, image_height = args.resolution
+        fx = focal_length * image_width / horizontal_aperture
+        fy = fx
+        cx = image_width / 2.0
+        cy = image_height / 2.0
 
         def measured() -> np.ndarray:
             values = arm.get_joint_positions()
@@ -477,18 +502,41 @@ def main() -> None:
             if render and not args.headless:
                 time.sleep(max(0.0, 1 / 30 - (time.monotonic() - started)))
 
-        def capture(frame_dir: Path) -> Path:
+        def capture(frame_dir: Path) -> tuple[Path, np.ndarray]:
             frame_dir.mkdir(parents=True, exist_ok=True)
-            # Render a few settled frames.  Avoid rep.orchestrator.step() here because
+            # Render a few settled frames. Avoid rep.orchestrator.step() here because
             # its default timeline behavior can pause a running physics simulation.
             for _ in range(4):
                 tick(initial, C.JAW_OPEN, render=True)
             data = rgb_annotator.get_data()
             if data is None or np.asarray(data).size == 0:
                 raise RuntimeError("RGB camera returned no data")
+            depth = depth_annotator.get_data()
+            depth = np.asarray(depth, dtype=np.float64)
+            if depth.size == 0 or depth.shape[:2] != (image_height, image_width):
+                raise RuntimeError(f"Depth camera returned invalid shape {depth.shape}")
             image_path = frame_dir / "camera_rgb.png"
             rep.functional.write_image(path=str(image_path), data=data)
-            return image_path
+            return image_path, depth.copy()
+
+        def depth_projector(depth: np.ndarray) -> Callable[[float, float], np.ndarray]:
+            def project(u: float, v: float) -> np.ndarray:
+                ui = int(np.clip(round(u), 0, image_width - 1))
+                vi = int(np.clip(round(v), 0, image_height - 1))
+                z_forward = float(depth[vi, ui])
+                if not np.isfinite(z_forward) or z_forward <= 0.0:
+                    raise ValueError(f"No valid depth at pixel ({u:.1f}, {v:.1f})")
+                # USD cameras use -Z forward, +Y up. The depth annotator reports
+                # distance to the image plane, so standard pinhole unprojection applies.
+                camera_point = Gf.Vec3d(
+                    (u - cx) * z_forward / fx,
+                    -(v - cy) * z_forward / fy,
+                    -z_forward,
+                )
+                world_point = camera_to_world.Transform(camera_point)
+                return np.array([world_point[0], world_point[1]], dtype=np.float64)
+
+            return project
 
         def nearest_body(xy: np.ndarray) -> tuple[str, Any, np.ndarray, float] | None:
             choices = []
@@ -524,7 +572,7 @@ def main() -> None:
 
         for cycle in range(args.max_picks):
             cycle_dir = output / f"cycle_{cycle:02d}"
-            image_path = capture(cycle_dir)
+            image_path, depth = capture(cycle_dir)
             response = sam.detect(
                 {
                     "image": str(image_path),
@@ -550,14 +598,14 @@ def main() -> None:
             }
             report["picks"].append(cycle_report)
 
-            if homography is None:
-                print("[vision] Pixel-only test complete; inspect annotated.png.", flush=True)
-                report["complete"] = True
-                report["stop_reason"] = "pixel_only_dry_run"
-                break
+            projector = (
+                (lambda u, v: pixel_to_world(u, v, homography))
+                if homography is not None
+                else depth_projector(depth)
+            )
             targets, rejected = build_targets(
                 detections,
-                homography,
+                projector,
                 args.workspace,
                 args.drop_xy,
                 args.drop_exclusion_radius,
@@ -581,6 +629,26 @@ def main() -> None:
                 ),
                 flush=True,
             )
+            validation = []
+            for item in targets:
+                match = nearest_body(item.world_xy)
+                validation.append(
+                    {
+                        "detection_id": item.detection_id,
+                        "matched_body": None if match is None else match[0],
+                        "xy_error_mm": None if match is None else match[3] * 1000,
+                    }
+                )
+            cycle_report["simulation_validation"] = validation
+            valid_matches = [item for item in validation if item["matched_body"] is not None]
+            max_match_error = max(
+                (item["xy_error_mm"] for item in valid_matches), default=float("nan")
+            )
+            print(
+                f"[vision] simulation matches={len(valid_matches)}/{len(targets)} "
+                f"max_xy_error_mm={max_match_error:.2f}",
+                flush=True,
+            )
             if not args.execute:
                 print("[vision] Dry-run target conversion complete; robot motion disabled.", flush=True)
                 report["complete"] = True
@@ -591,13 +659,21 @@ def main() -> None:
                 report["complete"] = True
                 break
 
-            target = targets[0]
-            matched = nearest_body(target.world_xy)
-            if matched is None:
+            selected = None
+            for candidate in targets:
+                candidate_match = nearest_body(candidate.world_xy)
+                if candidate_match is None:
+                    continue
+                candidate_path = candidate_match[0].lower()
+                if args.target_type == "any" or args.target_type in candidate_path:
+                    selected = (candidate, candidate_match)
+                    break
+            if selected is None:
                 raise RuntimeError(
-                    f"Detection #{target.detection_id} has no simulated object within "
+                    f"No {args.target_type} detection matched a simulated object within "
                     f"{args.object_match_radius * 1000:.0f} mm; refusing to move"
                 )
+            target, matched = selected
             body_path, body, before, match_distance = matched
             cycle_report.update(
                 selected_detection_id=target.detection_id,
@@ -664,6 +740,11 @@ def main() -> None:
         if rgb_annotator is not None and render_product is not None:
             try:
                 rgb_annotator.detach(render_product)
+            except Exception:
+                pass
+        if depth_annotator is not None and render_product is not None:
+            try:
+                depth_annotator.detach(render_product)
             except Exception:
                 pass
         if world is not None:
