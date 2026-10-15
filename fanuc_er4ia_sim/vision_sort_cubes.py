@@ -29,6 +29,7 @@ with --second-scan-xyz X,Y,Z if another pose reveals more table.
 New simulated cubes must have /World/SortCube... rigid-body paths, as in the
 starter scene. Both destination circles are excluded from subsequent picks.
 Cube travel uses pick/drop clearance heights, separate from the scan height.
+Pickup descent/lift retain the original 130 mm stroke and phase timing.
 The RGB/depth camera updates only during scans; the viewport remains live.
 The right scan supplies primary targets; the neutral scan adds unseen cubes.
 The report is checkpointed BEFORE motion phases to survive native crashes.
@@ -246,7 +247,10 @@ def segments(target, start, pick_z, drop_xy, drop_z, jaw_close, travel_z):
     p = np.array([*target.world_xy, pick_z])
     d = np.array([*drop_xy, drop_z])
     up, above = p.copy(), d.copy()
-    up[2] = above[2] = travel_z
+    # Preserve the original pickup stroke. Using the higher drop clearance
+    # here changed a 130 mm descent/lift to 210 mm with unchanged timing.
+    up[2] = pick_z + 0.13
+    above[2] = travel_z
     raised = start.copy()
     raised[2] = travel_z
     destination = np.array([0.0, 1.0, 0.0])
@@ -468,7 +472,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    print("[sort] Cube sorter revision 3; right scan primary, neutral fills blind spots", flush=True)
+    print("[sort] Cube sorter revision 4; original 130 mm pickup stroke restored", flush=True)
     if args.two_color_demo:
         C.SORT_CUBES = [(x, y, color if color in args.colors else args.colors[0])
                         for x, y, color in C.SORT_CUBES]
@@ -501,7 +505,7 @@ def main() -> None:
     output.mkdir(parents=True)
     report: dict[str, Any] = {
         "test": "sam2_two_view_cube_color_sort",
-        "revision": 3,
+        "revision": 4,
         "colors_and_drops": {color: xy.tolist() for color, xy in args.drops.items()},
         "observation_tcp": {"right": home.tolist(), "neutral": neutral.tolist()},
         "travel_z": travel_z,
