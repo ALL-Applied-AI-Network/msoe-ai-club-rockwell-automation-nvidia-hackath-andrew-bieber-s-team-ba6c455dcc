@@ -30,6 +30,7 @@ New simulated cubes must have /World/SortCube... rigid-body paths, as in the
 starter scene. Both destination circles are excluded from subsequent picks.
 Cube travel uses pick/drop clearance heights, separate from the scan height.
 The RGB/depth camera updates only during scans; the viewport remains live.
+The right scan supplies primary targets; the neutral scan adds unseen cubes.
 The report is checkpointed BEFORE motion phases to survive native crashes.
 IK checks reachability, not collision freedom; verify both scan
 poses and the new travel paths in the digital twin before hardware integration.
@@ -220,6 +221,10 @@ def build_targets(detections, projector, workspace, drops, radius, rgb, view):
 def merge_targets(targets: list[PickTarget]) -> list[PickTarget]:
     """Use existing simulated-body matches to merge repeat masks/across views.
 
+    The right pose clears the arm from the grid. Keep its targets when both
+    views see a cube; the neutral scan fills blind spots. A higher SAM score
+    alone is not a reason to replace an existing grasp with the other view.
+    Within a view, still select the highest-confidence mask.
     Distinct touching cubes stay distinct. Conflicting color observations are
     left for a later scan instead of arbitrarily selecting a destination.
     """
@@ -228,7 +233,9 @@ def merge_targets(targets: list[PickTarget]) -> list[PickTarget]:
         old = merged.get(target.body_path)
         if old is not None and old.color != target.color:
             conflicts.add(target.body_path)
-        if old is None or target.confidence > old.confidence:
+        if (old is None
+                or (target.view == "right" and old.view != "right")
+                or (target.view == old.view and target.confidence > old.confidence)):
             merged[target.body_path] = target
     return [target for path, target in merged.items() if path not in conflicts]
 
@@ -461,7 +468,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    print("[sort] Cube sorter revision 2; camera paused between scans", flush=True)
+    print("[sort] Cube sorter revision 3; right scan primary, neutral fills blind spots", flush=True)
     if args.two_color_demo:
         C.SORT_CUBES = [(x, y, color if color in args.colors else args.colors[0])
                         for x, y, color in C.SORT_CUBES]
@@ -494,7 +501,7 @@ def main() -> None:
     output.mkdir(parents=True)
     report: dict[str, Any] = {
         "test": "sam2_two_view_cube_color_sort",
-        "revision": 2,
+        "revision": 3,
         "colors_and_drops": {color: xy.tolist() for color, xy in args.drops.items()},
         "observation_tcp": {"right": home.tolist(), "neutral": neutral.tolist()},
         "travel_z": travel_z,
@@ -748,7 +755,9 @@ def main() -> None:
                 "batch": batch, "view": view, "image": str(image_path),
                 "overlay": response.get("overlay"), "rejected": rejected,
                 "targets": [{"body": t.body_path, "color": t.color, "rgb": t.rgb,
-                             "xy": t.world_xy.tolist()} for t in eligible],
+                             "xy": t.world_xy.tolist(), "confidence": t.confidence,
+                             "spread_dir": t.spread_dir.tolist(),
+                             "detection_id": t.detection_id} for t in eligible],
             })
             save_report()
             return eligible
@@ -798,11 +807,15 @@ def main() -> None:
                     args.pick_z, drop_xy, args.drop_z, args.jaw_close, travel_z)
                 pick_report = {"batch": batch, "body": body_path, "color": target.color,
                     "rgb": target.rgb, "view": target.view, "world_xy": target.world_xy.tolist(),
+                    "spread_dir": target.spread_dir.tolist(), "confidence": target.confidence,
+                    "detection_id": target.detection_id, "before_xyz": before.tolist(),
                     "drop_xy": drop_xy.tolist(), "match_error_mm": match_distance * 1000,
                     "max_numerical_ik_error_mm": worst * 1000, "pickup_verified": False,
-                    "sorted_verified": False}
+                    "sorted_verified": False, "grasp_checks": {}}
                 report["picks"].append(pick_report)
-                print(f"[sort] PICK {body_path} -> {target.color} {drop_xy.tolist()}", flush=True)
+                angle = math.degrees(math.atan2(target.spread_dir[1], target.spread_dir[0]))
+                print(f"[sort] PICK {body_path} view={target.view} spread_deg={angle:.1f} "
+                      f"-> {target.color} {drop_xy.tolist()}", flush=True)
                 for name, steps in phases:
                     pick_report["phase"] = name
                     pick_report["phase_state"] = "started"
@@ -813,15 +826,32 @@ def main() -> None:
                             pick_report["frame"] = index
                             save_report()
                         tick(q, jaw, render=True)
-                    error = float(np.linalg.norm(fk.tool_pose(measured()[arm_idx], tool)[1] - position))
+                    pick_report["frame"] = len(steps)
+                    actual_joints = measured()
+                    actual_tcp = fk.tool_pose(actual_joints[arm_idx], tool)[1]
+                    error = float(np.linalg.norm(actual_tcp - position))
+                    if name in ("descend", "close", "dwell", "lift"):
+                        pick_report["grasp_checks"][name] = {
+                            "tcp_error_mm": error * 1000,
+                            "tcp_actual_xyz": actual_tcp.tolist(),
+                            "tcp_target_xyz": position.tolist(),
+                            "cube_xyz": body.get_world_pose()[0].tolist(),
+                            "jaw_targets": {key: float(value)
+                                            for key, value in cell.jaw_targets(jaw).items()},
+                            "jaw_actual": {key: float(actual_joints[joints[key]])
+                                           for key in cell.jaw_targets(jaw)},
+                        }
                     if name in ("descend", "lower", "retreat") and error > 0.003:
+                        pick_report["phase_state"] = "failed"
                         raise RuntimeError(f"{name} tracking error: {error*1000:.2f} mm")
                     if name == "lift":
                         lift = float(body.get_world_pose()[0][2] - before[2])
                         pick_report["lift_height_mm"] = lift * 1000
                         pick_report["pickup_verified"] = lift > 0.025
                         if not pick_report["pickup_verified"]:
-                            raise RuntimeError("Cube did not lift; stopping before carry")
+                            pick_report["phase_state"] = "failed"
+                            raise RuntimeError(f"Cube rose only {lift*1000:.1f} mm "
+                                               f"(view={target.view}); stopping before carry")
                     pick_report["phase_state"] = "completed"
                     pick_report["frame"] = len(steps)
                     save_report()
