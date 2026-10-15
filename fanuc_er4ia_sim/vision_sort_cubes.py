@@ -20,14 +20,18 @@ Run with the same Isaac Python/environment as the original script:
     Scan twice and sort one batch. Use this for the first twin test.
   python -u vision_sort_cubes.py --colors red,blue --drop-b X,Y --execute
     Repeat batches, waiting 60 wall-clock seconds after a batch. Ctrl+C stops.
+Add --two-color-demo to temporarily recolor unselected cube colors as COLOR_A
+in this simulated scene (e.g. yellow becomes red for the six-cube test).
 Replace example colors and X,Y with the actual colors and checked destination.
 
-The second scan uses the configured HOME_POSE tool location, with tool pointing
-down; override with --second-scan-xyz X,Y,Z if another pose reveals more table.
+The second scan defaults to TCP (0.30, 0.00, 0.38), pointing down; override
+with --second-scan-xyz X,Y,Z if another pose reveals more table.
 New simulated cubes must have /World/SortCube... rigid-body paths, as in the
 starter scene. Both destination circles are excluded from subsequent picks.
-Travel uses a raised horizontal segment and retains the original cube grasp
-heights/timings. IK checks reachability, not collision freedom; verify both scan
+Cube travel uses pick/drop clearance heights, separate from the scan height.
+The RGB/depth camera updates only during scans; the viewport remains live.
+The report is checkpointed BEFORE motion phases to survive native crashes.
+IK checks reachability, not collision freedom; verify both scan
 poses and the new travel paths in the digital twin before hardware integration.
 """
 
@@ -37,6 +41,7 @@ import argparse
 import colorsys
 import json
 import math
+import os
 import subprocess
 import time
 import traceback
@@ -74,11 +79,41 @@ def load_homography(path: Path | None) -> np.ndarray | None:
     if path is None:
         return None
     payload = json.loads(path.read_text(encoding="utf-8"))
-    raw = payload.get("pixel_to_world_homography", payload)
+    raw = payload.get("pixel_to_world_homography", payload) if isinstance(payload, dict) else payload
     matrix = np.asarray(raw, dtype=np.float64)
     if matrix.shape != (3, 3):
         raise ValueError("Homography JSON must contain a 3x3 pixel_to_world_homography")
     return matrix
+
+
+def write_report(path: Path, report: dict[str, Any]) -> None:
+    """Keep the last complete checkpoint readable even if a native call fails."""
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def capture_frame(render_product, rgb_annotator, depth_annotator, step, shape):
+    """Enable the perception render product only long enough for a fresh frame.
+
+    NVIDIA's Replicator API supports gating its Hydra texture independently of
+    the viewport. Copy annotator buffers BEFORE disabling texture updates.
+    """
+    render_product.hydra_texture.set_updates_enabled(True)
+    try:
+        for _ in range(8):
+            step()
+        rgb = np.array(rgb_annotator.get_data(), copy=True)
+        depth = np.array(depth_annotator.get_data(), dtype=np.float64, copy=True)
+        if depth.ndim == 3 and depth.shape[2] == 1:
+            depth = depth[..., 0]
+        if rgb.ndim != 3 or rgb.shape[:2] != shape or rgb.shape[2] < 3:
+            raise RuntimeError(f"RGB camera returned invalid shape {rgb.shape}")
+        if depth.shape != shape:
+            raise RuntimeError(f"Depth camera returned invalid shape {depth.shape}")
+        return rgb, depth
+    finally:
+        render_product.hydra_texture.set_updates_enabled(False)
 
 
 def pixel_to_world(u: float, v: float, homography: np.ndarray) -> np.ndarray:
@@ -200,7 +235,7 @@ def merge_targets(targets: list[PickTarget]) -> list[PickTarget]:
 
 
 def segments(target, start, pick_z, drop_xy, drop_z, jaw_close, travel_z):
-    """Same cube grasp; raise, travel, descend; finish above drop, not home."""
+    """Move vertically to clearance, travel, pick; finish above drop, not home."""
     p = np.array([*target.world_xy, pick_z])
     d = np.array([*drop_xy, drop_z])
     up, above = p.copy(), d.copy()
@@ -357,7 +392,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scan-only", action="store_true", help="With --execute: two scans and IK planning, no picks")
     parser.add_argument("--poll-seconds", type=float, default=60.0)
     parser.add_argument("--colors", required=True, help="Two colors, e.g. red,blue; in drop-a,drop-b order")
-    parser.add_argument("--second-scan-xyz", help="Second observation TCP; default configured HOME_POSE TCP")
+    parser.add_argument("--two-color-demo", action="store_true",
+                        help="Simulation only: recolor unselected cubes as the first color")
+    parser.add_argument("--second-scan-xyz", default="0.30,0.00,0.38",
+                        help="Second observation TCP, meters; default 0.30,0.00,0.38")
     parser.add_argument("--homography", type=Path)
     parser.add_argument("--sam-python", type=Path, default=Path.home() / "venvs/sam2-check/bin/python")
     parser.add_argument("--sam-worker", type=Path, default=base / "vision/sam2_worker.py")
@@ -417,14 +455,17 @@ def parse_args() -> argparse.Namespace:
         parser.error("Drop areas must not overlap; increase their separation")
     if args.max_picks < 0 or not np.isfinite(args.poll_seconds) or args.poll_seconds <= 0:
         parser.error("--max-picks must be >= 0 and --poll-seconds positive")
-    if args.second_scan_xyz:
-        args.second_scan_xyz = np.asarray(parse_csv(args.second_scan_xyz, 3, "--second-scan-xyz"))
+    args.second_scan_xyz = np.asarray(parse_csv(args.second_scan_xyz, 3, "--second-scan-xyz"))
     return args
 
 
 def main() -> None:
     args = parse_args()
-    print("[sort] Two-view cube color sorter; simulation body gate enabled", flush=True)
+    print("[sort] Cube sorter revision 2; camera paused between scans", flush=True)
+    if args.two_color_demo:
+        C.SORT_CUBES = [(x, y, color if color in args.colors else args.colors[0])
+                        for x, y, color in C.SORT_CUBES]
+        print(f"[sort] Two-color demo scene: {args.colors}; config file unchanged", flush=True)
     homography = load_homography(args.homography)
     if not args.execute:
         print("[vision] DRY RUN: world targets will be printed, but the robot will not move.", flush=True)
@@ -437,11 +478,13 @@ def main() -> None:
     home = np.array([0.12, -0.32, 0.38])
     down = np.array([0.0, 0.0, -1.0])
     initial = np.deg2rad([C.HOME_POSE_DEG[f"J{i}"] for i in range(1, 7)])
-    neutral = (fk.tool_pose(initial, tool)[1].copy() if args.second_scan_xyz is None
-               else args.second_scan_xyz)
+    neutral = args.second_scan_xyz
     if not np.all(np.isfinite(neutral)) or np.linalg.norm(neutral - home) < 0.05:
         raise ValueError("Choose a distinct --second-scan-xyz observation position")
-    travel_z = max(home[2], neutral[2], args.pick_z + 0.13, args.drop_z + 0.13)
+    # Scan poses are high and near the base. Carrying far cubes at that same
+    # height unnecessarily approaches the arm's reach limit.
+    travel_z = max(args.pick_z, args.drop_z) + 0.13
+    scan_travel_z = max(home[2], neutral[2], travel_z)
     initial, ok = ik.solve(initial, home, down, limits, tool_offset=tool)
     if not ok:
         raise RuntimeError("Home IK failed")
@@ -451,9 +494,13 @@ def main() -> None:
     output.mkdir(parents=True)
     report: dict[str, Any] = {
         "test": "sam2_two_view_cube_color_sort",
+        "revision": 2,
         "colors_and_drops": {color: xy.tolist() for color, xy in args.drops.items()},
         "observation_tcp": {"right": home.tolist(), "neutral": neutral.tolist()},
         "travel_z": travel_z,
+        "scan_travel_z": scan_travel_z,
+        "two_color_demo": args.two_color_demo,
+        "active_phase": "startup",
         "scans": [],
         "sorted_counts": {color: 0 for color in args.colors},
         "execute": bool(args.execute),
@@ -461,6 +508,18 @@ def main() -> None:
         "picks": [],
         "error": None,
     }
+    report_path = output / "vision_sort_report.json"
+
+    def save_report():
+        write_report(report_path, report)
+
+    def mark_phase(name):
+        report["active_phase"] = name
+        save_report()
+        print(f"[sort] {name}", flush=True)
+
+    save_report()
+    print(f"[sort] Report/checkpoint: {report_path}", flush=True)
 
     from isaacsim import SimulationApp
 
@@ -527,6 +586,9 @@ def main() -> None:
         rgb_annotator.attach(render_product)
         depth_annotator = rep.annotators.get("distance_to_image_plane")
         depth_annotator.attach(render_product)
+        # Keep the GUI viewport active, but stop unnecessary RGB/depth renders
+        # during arm motion. Re-enabled inside capture_frame only.
+        render_product.hydra_texture.set_updates_enabled(False)
 
         camera_prim = UsdGeom.Camera(stage.GetPrimAtPath(str(camera.GetPath())))
         if not camera_prim:
@@ -562,28 +624,20 @@ def main() -> None:
             started = time.monotonic()
             command(q, jaw)
             world.step(render=False)
-            # Camera render products still need rendered frames in headless mode.
+            # Preserve the working baseline's physics cadence and GUI updates.
+            # Perception rendering is gated separately by capture_frame().
             world.step(render=render)
             if render and not args.headless:
                 time.sleep(max(0.0, 1 / 30 - (time.monotonic() - started)))
 
         def capture(frame_dir: Path) -> tuple[Path, np.ndarray, np.ndarray]:
             frame_dir.mkdir(parents=True, exist_ok=True)
-            # Render a few settled frames. Avoid rep.orchestrator.step() here because
-            # its default timeline behavior can pause a running physics simulation.
             hold_q = measured()[arm_idx]
-            for _ in range(4):
-                tick(hold_q, C.JAW_OPEN, render=True)
-            data = rgb_annotator.get_data()
-            if data is None or np.asarray(data).size == 0:
-                raise RuntimeError("RGB camera returned no data")
-            depth = depth_annotator.get_data()
-            depth = np.asarray(depth, dtype=np.float64)
-            if depth.size == 0 or depth.shape[:2] != (image_height, image_width):
-                raise RuntimeError(f"Depth camera returned invalid shape {depth.shape}")
+            data, depth = capture_frame(render_product, rgb_annotator, depth_annotator,
+                lambda: tick(hold_q, C.JAW_OPEN, render=True), (image_height, image_width))
             image_path = frame_dir / "camera_rgb.png"
             rep.functional.write_image(path=str(image_path), data=data)
-            return image_path, depth.copy(), np.asarray(data)[..., :3].copy()
+            return image_path, depth, data[..., :3]
 
         def depth_projector(depth: np.ndarray) -> Callable[[float, float], np.ndarray]:
             def project(u: float, v: float) -> np.ndarray:
@@ -623,6 +677,7 @@ def main() -> None:
                 return None
             return path, body, position, distance
 
+        mark_phase("scene_warmup")
         arm.set_joint_positions(command(initial, C.JAW_OPEN))
         for _ in range(60):
             tick(initial, C.JAW_OPEN, render=True)
@@ -643,24 +698,20 @@ def main() -> None:
             args.points_per_batch,
         )
 
-        report_path = output / "vision_sort_report.json"
-
-        def save_report():
-            report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-
         def move_to(position):
             q = measured()[arm_idx]
             start = fk.tool_pose(q, tool)[1].copy()
             if np.linalg.norm(start - position) < 0.001:
                 return
             raised, above = start.copy(), np.asarray(position).copy()
-            raised[2] = above[2] = travel_z
+            raised[2] = above[2] = scan_travel_z
             opened = C.JAW_OPEN
             specs = [("scan_raise", start, raised, 0.8, opened, opened, None),
                      ("scan_travel", raised, above, 1.2, opened, opened, None),
                      ("scan_lower", above, position, 0.8, opened, opened, None)]
             phases, _ = plan_phases(q, limits, tool, specs)
             for name, steps in phases:
+                mark_phase(name)
                 for q, jaw, _ in steps:
                     tick(q, jaw, render=True)
                 error = np.linalg.norm(fk.tool_pose(measured()[arm_idx], tool)[1] - steps[-1][2])
@@ -671,7 +722,9 @@ def main() -> None:
 
         def scan(batch, view):
             frame_dir = output / f"batch_{batch:03d}_{view}"
+            mark_phase(f"batch_{batch}_{view}_capture")
             image_path, depth, rgb = capture(frame_dir)
+            mark_phase(f"batch_{batch}_{view}_sam")
             response = sam.detect({
                 "image": str(image_path), "output_dir": str(frame_dir), "roi": args.roi,
                 "min_area_px": args.min_area_px, "max_area_fraction": args.max_area_fraction,
@@ -751,8 +804,14 @@ def main() -> None:
                 report["picks"].append(pick_report)
                 print(f"[sort] PICK {body_path} -> {target.color} {drop_xy.tolist()}", flush=True)
                 for name, steps in phases:
-                    print(f"[sort] {name.upper()}", flush=True)
-                    for q, jaw, position in steps:
+                    pick_report["phase"] = name
+                    pick_report["phase_state"] = "started"
+                    pick_report["frame"] = 0
+                    mark_phase(f"{body_path}:{name}")
+                    for index, (q, jaw, position) in enumerate(steps):
+                        if index % 30 == 0:
+                            pick_report["frame"] = index
+                            save_report()
                         tick(q, jaw, render=True)
                     error = float(np.linalg.norm(fk.tool_pose(measured()[arm_idx], tool)[1] - position))
                     if name in ("descend", "lower", "retreat") and error > 0.003:
@@ -763,7 +822,11 @@ def main() -> None:
                         pick_report["pickup_verified"] = lift > 0.025
                         if not pick_report["pickup_verified"]:
                             raise RuntimeError("Cube did not lift; stopping before carry")
+                    pick_report["phase_state"] = "completed"
+                    pick_report["frame"] = len(steps)
+                    save_report()
                 # Hold ABOVE the destination instead of commanding the home pose.
+                mark_phase(f"{body_path}:verify_release")
                 for _ in range(30):
                     tick(q, C.JAW_OPEN, render=True)
                 after = np.asarray(body.get_world_pose()[0], dtype=float)
@@ -787,7 +850,7 @@ def main() -> None:
             if stale_queue:
                 continue
             move_to(home)
-            save_report()
+            mark_phase("idle")
             print(f"[sort] Waiting {args.poll_seconds:g}s; counts={report['sorted_counts']}", flush=True)
             deadline = time.monotonic() + args.poll_seconds
             hold_q = measured()[arm_idx]
@@ -804,8 +867,10 @@ def main() -> None:
         report["error"] = str(exc)
         traceback.print_exc()
     finally:
-        report_path = output / "vision_sort_report.json"
-        report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        if report["complete"]:
+            report["active_phase"] = "finished"
+        save_report()
+        print(f"[sort] Verified placements: {report['sorted_counts']}", flush=True)
         print(f"[vision] Report: {report_path}", flush=True)
         if sam is not None:
             sam.close()
