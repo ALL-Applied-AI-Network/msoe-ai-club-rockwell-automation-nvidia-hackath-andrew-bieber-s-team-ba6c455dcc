@@ -79,3 +79,6 @@ can be grasped by the existing fingers.
 Report measured performance, the manufacturing problem, limitations, and what
 was demonstrated in simulation versus on hardware. Follow `CONTRIBUTING.md`;
 keep generated runs, datasets, environments, and model weights out of Git.
+
+## CURRENT WORKING BASELINE:
+**Head** : 83029f9

@@ -1,0 +1,8 @@
+{
+  "pixel_to_world_homography": [
+    [0.001, 0.0, -0.5],
+    [0.0, 0.001, -0.3],
+    [0.0, 0.0, 1.0]
+  ],
+  "warning": "PLACEHOLDER ONLY. Replace using measured pixel/world correspondences before --execute."
+}
