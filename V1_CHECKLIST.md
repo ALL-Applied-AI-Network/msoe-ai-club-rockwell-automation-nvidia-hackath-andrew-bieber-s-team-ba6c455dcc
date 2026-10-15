@@ -29,10 +29,10 @@ are documented. A working viewer does not prove model or grasp execution.
 
 ## 2. Early Lab Visit — Run in Parallel
 
-- [ ] Arrange the visit, staff supervision, and recording permission.
-- [ ] Assign a camera/data owner: views, samples, access method, calibration files/contact.
-- [ ] Assign an interface owner: approved commands, units/frames, feedback, documentation/contact.
-- [ ] Assign an object/workflow owner: supported objects, destinations, normal cycles, operator problem.
+- [x] Arrange the visit, staff supervision, and recording permission.
+- [x] Assign a camera/data owner: views, samples, access method, calibration files/contact.
+- [x] Assign an interface owner: approved commands, units/frames, feedback, documentation/contact.
+- [x] Assign an object/workflow owner: supported objects, destinations, normal cycles, operator problem.
 - [ ] Return evidence and a list of unknowns with the person responsible for each answer.
 - [ ] Confirm the approved physical-arm interface and review requirements.
 - [ ] Request an early supervised test and a later validation session.
@@ -59,19 +59,19 @@ placement. This diagnostic is not a camera-based result or the full starter benc
 - [x] Find the supported cube in a fresh image.
 - [x] Convert its observed position into robot coordinates with explicit units and frame.
 - [x] Estimate the cube orientation and align the gripper.
-- [ ] Complete camera-based picks across varied starting positions.
-- [ ] Reject missing, unsupported, or uncertain detections.
+- [x] Complete camera-based picks across varied starting positions.
+- [x] Reject missing, unsupported, or uncertain detections.
 
 Done when: grasp targets come from camera observations, not hidden simulation poses.
 Custom model training is only added if experiments establish the need.
 
 ## 5. Add Sorting
 
-- [ ] Confirm two colour groups of the same supported cube shape as the initial scope.
-- [ ] Define two destinations and an explicit sorting rule.
-- [ ] Identify both groups and select the correct destination.
-- [ ] Demonstrate repeated camera-based picks and correct placements.
-- [ ] Keep objects separated and conditions controlled for V1.
+- [x] Confirm two colour groups of the same supported cube shape as the initial scope.
+- [x] Define two destinations and an explicit sorting rule.
+- [x] Identify both groups and select the correct destination.
+- [x] Demonstrate repeated camera-based picks and correct placements.
+- [x] Keep objects separated and conditions controlled for V1.
 
 Done when: both groups reach their assigned destinations and outcomes are checked.
 Keep the supplied six-cube stacking benchmark and its original gates intact;
