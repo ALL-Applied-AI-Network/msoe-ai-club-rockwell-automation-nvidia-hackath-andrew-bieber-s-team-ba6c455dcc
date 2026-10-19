@@ -16,6 +16,7 @@ from isaacsim.storage.native import get_assets_root_path
 
 import scene_config as C
 from gripper_geometry import finger_profile, clip_profile, triangulate as _ear_clip
+import padded_fingers
 
 FLANGE = C.ROBOT_PRIM + "/J6_link"
 WRIST_CAM_PATH = C.WRIST_CAM["parent"] + "/WristCam"
@@ -1454,6 +1455,10 @@ def attach_gripper(stage, jaw=None, articulated=True):
                 SOFT_TIP_MAT_PATH,
             ),
         ]
+        if padded_fingers.enabled():
+            sections = padded_fingers.finger_sections(
+                sign, PHYS_MAT_PATH, SOFT_TIP_MAT_PATH
+            )
         for section, name, visual_material, physics_material in sections:
             fprim = prism(
                 stage,
@@ -1478,8 +1483,10 @@ def attach_gripper(stage, jaw=None, articulated=True):
                     for p in UsdGeom.Mesh(fprim).GetPointsAttr().Get()
                 ]
             )
-            UsdGeom.Imageable(fprim).CreateVisibilityAttr().Set("invisible")
-        detailed_finger_visual(stage, jaw_path, sign, finger_x - carriage_x)
+            if not padded_fingers.enabled():
+                UsdGeom.Imageable(fprim).CreateVisibilityAttr().Set("invisible")
+        if not padded_fingers.enabled():
+            detailed_finger_visual(stage, jaw_path, sign, finger_x - carriage_x)
         # Separate convex triangle prisms preserve the concave AA socket.
         # A convex hull of the entire finger bridges and fills that socket.
         pieces = [

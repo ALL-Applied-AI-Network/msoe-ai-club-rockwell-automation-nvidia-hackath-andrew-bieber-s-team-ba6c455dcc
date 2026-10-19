@@ -239,6 +239,24 @@ CUBE_EDGE = 0.010  # hackathon: 2 mm clearance inside measured 12 mm open gap
 # The bottom of the open-ended AA socket remains separated at full closure.
 # Target contact at the hooked ends, allowing 0.3 mm per-jaw seating travel.
 FINGER_INNER_TIP = (SCALLOP_R**2 - SCALLOP_ABOVE_TIP**2) ** 0.5
+
+# Finger set: "scallop" (original AA-pocket blades) or "padded" (flat blades with
+# relieved, rubber-padded tips, from Padded_Gripper_Test.STEP).  Switch per run:
+#   FINGER_SET=padded python <script>
+# PAD_FACE_MM overrides the relief depth (STEP value: 4 mm -> pad gap 8 closed / 20 open).
+import os as _os
+
+FINGER_SET = _os.environ.get("FINGER_SET", "scallop")
+PAD_STEP_X = 0.044  # relief starts here, measured from the carriage end (STEP: 44 mm)
+PAD_T = 0.001  # rubber pad thickness
+PAD_FACE = float(_os.environ.get("PAD_FACE_MM", "4")) / 1000.0
+if FINGER_SET == "padded":
+    assert PAD_STEP_X < FINGER_LENGTH
+    assert PAD_FACE >= 0.0 and PAD_FACE + PAD_T <= FINGER_WIDTH - 0.003, (
+        "PAD_FACE too deep: less than 3 mm of support would remain behind the pad"
+    )
+    # Flat pad faces replace the scallop's inner-tip half-gap at full close.
+    FINGER_INNER_TIP = PAD_FACE
 CUBE_TIP_CLEARANCE = TIP_CLEARANCE
 CUBE_JAW_HALF_TARGET = max(JAW_CLOSED, CUBE_EDGE / 2 - FINGER_INNER_TIP - 0.0003)
 assert 2 * (JAW_OPEN + FINGER_INNER_TIP) > CUBE_EDGE * 2**0.5
