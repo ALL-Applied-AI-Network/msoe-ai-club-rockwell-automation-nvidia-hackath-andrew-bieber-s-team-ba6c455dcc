@@ -21,6 +21,7 @@ See what fits, no Isaac needed (extra args are your own part widths in mm):
     FINGER_SET=cap python padded_fingers.py 15 18
 """
 
+import os
 import sys
 
 import scene_config as C
@@ -71,11 +72,18 @@ def can_squeeze(width, margin=0.0006):
     return width >= closed_gap() + margin
 
 
-def jaw_for_width(width, squeeze=0.0003):
+def default_squeeze():
+    """Per-side squeeze in metres.  GRIP_SQUEEZE_MM=<mm> overrides it (all objects)."""
+    return float(os.environ.get("GRIP_SQUEEZE_MM", "0.3")) / 1000.0
+
+
+def jaw_for_width(width, squeeze=None):
     """Per-side jaw command (metres, same scale as C.JAW_OPEN) that grips `width`.
 
     Pad-face half-gap = jaw + PAD_FACE, so jaw = width/2 - PAD_FACE - squeeze.
     """
+    if squeeze is None:
+        squeeze = default_squeeze()
     if not enabled():
         raise RuntimeError("jaw_for_width is for the padded sets; set FINGER_SET")
     if not can_squeeze(width):
@@ -109,7 +117,9 @@ def jaw_for_object(object_type, cap_pick_height=0.005):
     elif object_type == "vial":
         width = 2 * C.VIAL_RADIUS
     elif object_type == "cap":
-        width = cap_width_at(cap_pick_height)
+        # The lowest PAD_LEAD_IN of the pad flares away, so the flat face (and the
+        # contact) starts that far above the fingertip.
+        width = cap_width_at(cap_pick_height + C.PAD_LEAD_IN)
     else:
         raise ValueError(f"unknown object type {object_type!r}")
     return jaw_for_width(width)
@@ -128,7 +138,7 @@ def report(extra_mm=()):
     parts = [
         ("cube", C.CUBE_EDGE),
         ("vial", 2 * C.VIAL_RADIUS),
-        ("cap plug @ pick height", cap_width_at(0.005)),
+        ("cap plug @ pad contact", cap_width_at(0.005 + C.PAD_LEAD_IN)),
         ("cap plug top", 2 * C.CAP_PLUG_TIP_RADIUS),
         ("cap plug base", 2 * C.CAP_PLUG_BASE_RADIUS),
     ] + [(f"your part {w:g} mm", w / 1000.0) for w in extra_mm]
