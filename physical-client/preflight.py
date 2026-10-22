@@ -19,8 +19,11 @@ import sort_config as S
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sam",action="store_true",help="Also check the external SAM interpreter/imports/GPU")
+    parser.add_argument("--require-cuda",action="store_true",help="With --sam, fail unless that interpreter can use CUDA")
     parser.add_argument("--submission",action="store_true",help="Check the prepared request and placement files")
     args=parser.parse_args()
+    if args.require_cuda and not args.sam:
+        parser.error("--require-cuda requires --sam")
     cam=load()["table"]
     points=np.array([[x,y,SURFACE_Z] for x in (.22,.35,.49) for y in (-.27,0,.27)])
     pixels=project(cam,points)
@@ -46,6 +49,8 @@ def main():
         if not python.is_file():
             raise SystemExit(f"Missing SAM interpreter: {python}. Set SORT_SAM_PYTHON to your existing environment.")
         check="import torch,sam2,cv2,numpy,PIL; print('SAM imports OK; CUDA:',torch.cuda.is_available())"
+        if args.require_cuda:
+            check += "; import sys; sys.exit(0 if torch.cuda.is_available() else 'CUDA unavailable: use an allocated GPU session')"
         subprocess.run([str(python),"-c",check],check=True,timeout=45)
         print("SAM import check does not load weights or run inference.")
     if args.submission:

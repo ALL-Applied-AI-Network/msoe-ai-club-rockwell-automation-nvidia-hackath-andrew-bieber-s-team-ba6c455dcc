@@ -1,0 +1,19 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ModuleNotFoundError: No module named 'torch'
+PASS: projection arithmetic, resize/frame conventions, UF0 conversion and configured pose bounds
+These mathematical checks do not establish real-world calibration, grasp or collision accuracy.
+Camera orientation: raw physical table frame; no image flip. Native size: (1920, 1080)
+Release: 10.0 mm fingertip above bare table (proposed; verify in cell)
+Motion enabled: False; poses confirmed: False
+Allowed kinds: ('screw', 'cube'); maximum grasp width: 11.0 mm
+Fresh scan per pick; destination correction: True; watch: False
+SHA256 7a8df1da65f238a1445319d720c1a2ce143e344754d44e42ff2f82d6d68a29f3 calibration/cameras.json
+Traceback (most recent call last):
+  File "/workspace/scratch/e11c948bd53a/morning-review/physical-client/preflight.py", line 67, in <module>
+    main()
+  File "/workspace/scratch/e11c948bd53a/morning-review/physical-client/preflight.py", line 54, in main
+    subprocess.run([str(python),"-c",check],check=True,timeout=45)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/workspace/scratch/e11c948bd53a/morning-review/physical-client/.venv/bin/python', '-c', "import torch,sam2,cv2,numpy,PIL; print('SAM imports OK; CUDA:',torch.cuda.is_available()); assert torch.cuda.is_available(), 'CUDA unavailable: use an allocated GPU session'"]' returned non-zero exit status 1.

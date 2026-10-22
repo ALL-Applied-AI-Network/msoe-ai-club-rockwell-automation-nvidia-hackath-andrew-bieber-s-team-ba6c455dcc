@@ -1,5 +1,7 @@
 """Physical-client regression checks; no network, model weights or real arm."""
 import json
+import io
+from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
@@ -23,6 +25,38 @@ def target(kind="screw", label="screw", width=6.0):
 
 
 class PhysicalTests(unittest.TestCase):
+    def test_official_submit_serializes_generated_request_without_network(self):
+        import run as runner
+        with tempfile.TemporaryDirectory() as tmp:
+            folder=Path(tmp)
+            write_submission('Andrew Bieber, test@localhost',directory=folder)
+            private=folder/'.request.json'
+            with patch.object(runner,'SUBMISSION',folder/'submission.yaml'), \
+                 patch.object(runner,'PLACEMENT',folder/'placement.yaml'), \
+                 patch.object(runner,'REQUEST',private),patch.object(runner,'CellClient') as client, \
+                 redirect_stdout(io.StringIO()):
+                client.return_value.submit.return_value={'request_id':'offline-fixture','secret':'offline-fixture'}
+                runner.submit('http://invalid.local',None)
+            payload=client.return_value.submit.call_args.args[0]
+            self.assertEqual(payload['action'],'tcp')
+            self.assertEqual(payload['cameras'],['table'])
+            self.assertIsNone(payload['custom_hardware'])
+            self.assertEqual(len(payload['placement']['rollouts']),payload['rollouts'])
+            self.assertEqual(private.stat().st_mode & 0o777,0o600)
+
+    def test_settle_timeout_halts_without_executing_queued_descent(self):
+        with tempfile.TemporaryDirectory() as tmp,patch.object(S,"ROOT",Path(tmp)), \
+             patch.object(S,"PHYSICAL_EXECUTE",True),patch.object(S,"PHYSICAL_POSES_CONFIRMED",True):
+            p=Policy();p.mock=False
+            p.pending=base_to_tcp(.39,0,S.SURFACE_Z+S.TRAVEL_HEIGHT)
+            p.queue.append([base_to_tcp(.39,0,S.SURFACE_Z+.0025,grip=1)])
+            obs={'tcp_pose':[300,0,-100,-180,0,0],'joints':[0]*7}
+            for _ in range(S.MAX_SETTLE_CALLS+1):
+                p.act(obs)
+            self.assertTrue(p.halted)
+            self.assertFalse(p.queue)
+            self.assertEqual(p.act(obs),obs['tcp_pose']+[0.0])
+
     def test_controller_box_is_enforced_before_queuing_or_selecting(self):
         self.assertEqual(tuple(TCP_BOX),S.PHYSICAL_TCP_BOX_MM)
         for xyz in ((149.9,0,-100),(300,450.1,-100),(300,0,-334.05)):

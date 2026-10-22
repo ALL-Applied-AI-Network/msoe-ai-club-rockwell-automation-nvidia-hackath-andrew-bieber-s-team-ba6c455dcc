@@ -40,10 +40,10 @@ mkdir -p ~/innovation-lab
 physical_test_dir=$(mktemp -d "$HOME/innovation-lab/physical-test-XXXXXXXX")
 tar -xzf ~/physical-client-ready.tar.gz -C "$physical_test_dir"
 cd "$physical_test_dir/physical-client"
-bash setup_rosie.sh
-pwd  # save this directory for your test session
+export PATH="$HOME/.local/physical-uv/bin:$PATH"
+bash setup_rosie.sh && pwd  # continue only after success; save this directory
 export SORT_SAM_PYTHON="$HOME/venvs/sam2-check/bin/python"
-uv run preflight.py --sam
+uv run preflight.py --sam --require-cuda
 ```
 
 The host and mock checks do not require a GPU or the robot. Real SAM inference
@@ -57,12 +57,19 @@ the setup script never submits or connects to the physical cell. If you already
 submitted from an older folder, keep its `.request.json` private and reuse that
 folder/request rather than submitting duplicates. Do not overwrite it with the archive.
 
+The October 22 update handles ROSIE's Snap uv permission failure: setup prefers
+`~/.local/physical-uv/bin/uv`, or installs it through a Python venv if uv is
+missing or resolves to Snap. It leaves the cluster's Snap install untouched.
+Export the PATH above again after a new SSH login or GPU allocation. A failed
+setup is a stop; an email prompt from a later command does not prove installation.
+
 The mock deliberately skips perception and exercises the organizer protocol.
 Its “Ready for the real robot” message means format/connection checks passed.
 Unit tests exercise synthetic perception, routing, geometry and motion states.
 Neither check demonstrates physical success.
 The standalone `SORT_SAM_PYTHON` interpreter must already have torch, SAM2, OpenCV,
 NumPy and Pillow. `preflight.py --sam` only checks imports and reports CUDA availability;
+`--require-cuda` additionally fails when CUDA is unavailable.
 it does not load weights or run segmentation. Use a ROSIE allocated GPU session for
 the saved-image inference and live preview; don't leave SAM running on a login node.
 

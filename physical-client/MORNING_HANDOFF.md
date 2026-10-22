@@ -1,8 +1,11 @@
 # Physical test handoff — October 22, 2026
 
-The package is prepared for an operator-reviewed first physical test. It has
-not been installed on ROSIE, submitted, booked, connected to the cell or moved
-on hardware by this review. Both motion gates remain false.
+The package is prepared for an operator-reviewed first physical test. The prior
+upload/extraction succeeded, but ROSIE setup stopped at Snap uv's permission
+error. This updated archive fixes setup's uv selection. Installation on ROSIE,
+submission and booking are still unconfirmed. This review did not connect to
+ROSIE or the cell. Both motion gates remain false. Use this updated archive;
+the earlier archive or branch copy does not contain today's recovery fix.
 
 ## 1. Upload — Windows PowerShell on your computer
 
@@ -22,11 +25,15 @@ mkdir -p ~/innovation-lab
 physical_test_dir=$(mktemp -d "$HOME/innovation-lab/physical-test-XXXXXXXX")
 tar -xzf ~/physical-client-ready.tar.gz -C "$physical_test_dir"
 cd "$physical_test_dir/physical-client"
-bash setup_rosie.sh
-pwd
+export PATH="$HOME/.local/physical-uv/bin:$PATH"
+bash setup_rosie.sh && pwd
 ```
 
-Save the printed path. If setup is interrupted, return to that folder and rerun
+Continue only if setup passes, and save the printed path. Setup prefers an
+existing private uv, otherwise uses a non-Snap uv or installs one in
+`~/.local/physical-uv` using a Python venv. It does not change the cluster's Snap
+installation. In every new ROSIE shell, export the PATH shown above.
+If setup is interrupted, return to that folder and rerun
 `bash setup_rosie.sh`; no need to recreate it. The setup only checks the local
 client and local mock. It never submits or connects to the physical robot.
 Keep any old `.request.json` private; if a prior request already exists, avoid
@@ -36,10 +43,11 @@ In an allocated ROSIE GPU session, return to the saved folder:
 
 ```bash
 export SORT_SAM_PYTHON="$HOME/venvs/sam2-check/bin/python"
-uv run preflight.py --sam
+export PATH="$HOME/.local/physical-uv/bin:$PATH"
+uv run preflight.py --sam --require-cuda
 ```
 
-The last check verifies imports and reports CUDA, not weights/inference. Before
+The last check verifies imports and requires CUDA, not weights/inference. Before
 the slot, test SAM on an actual uncropped table frame if one is available:
 `uv run policy.py --image table.png`. Do not run heavy SAM inference on a login node.
 
