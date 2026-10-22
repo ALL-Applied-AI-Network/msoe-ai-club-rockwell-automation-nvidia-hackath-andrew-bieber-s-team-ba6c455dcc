@@ -1,6 +1,6 @@
 """Settings shared by the Isaac runner and the physical policy. Distances: metres.
 
-The three drops below are STARTING POINTS, not measured cup positions.
+The separate drops below are simulation starting points, not measured cup positions.
 Base coordinates are used everywhere here; policy.py alone converts to UF0 mm.
 """
 from pathlib import Path
@@ -12,16 +12,27 @@ SAM_PYTHON = os.environ.get("SORT_SAM_PYTHON", sys.executable)
 MODEL_ID = "facebook/sam2.1-hiera-small"
 WORKSPACE = (0.22, 0.49, -0.27, 0.27)  # xmin, xmax, ymin, ymax; pickup area
 MAX_RADIUS = 0.54  # extra margin inside the advertised ~0.55 m reach
-DROP_XY = {"left": (0.20, 0.25), "middle": (0.20, 0.0), "right": (0.20, -0.25)}
-DROP_RADIUS = 0.065  # never pick objects already deposited here
+DROP_XY = {
+    "red": (0.20, 0.25),
+    "blue": (0.20, 0.00),
+    "yellow": (0.37, 0.34),
+    "screws": (0.20, -0.25),
+    "caps": (0.35, -0.35),
+    "vials": (0.17, -0.43),
+}
+MISC_DROP_XY = (0.17, 0.43)  # seventh destination; simulation --include-misc
+MISC_MAX_LENGTH_MM = 40.0
+MISC_MAX_WIDTH_MM = 10.0  # leave clearance inside the nominal 12 mm jaw opening
+DROP_RADIUS = 0.065  # zone centre tolerance; the sim leaves only matching labels here
 BIN_FOR = {
-    "cube_red": "left", "cube_blue": "middle",
-    "cube_yellow": "right", "screw": "right", "cap": "right", "vial": "right",
+    "cube_red": "red", "cube_blue": "blue", "cube_yellow": "yellow",
+    "screw": "screws", "cap": "caps", "vial": "vials",
+    "misc": "misc",
 }
 # Six labels because the supplied scene contains yellow cubes as well as red/blue.
-# Change BIN_FOR or add DROP_XY entries if you want every class kept separate.
-PICK_ORDER = {"screw": 0, "cube": 1, "cap": 2, "vial": 3}
-PICK_HEIGHT = {"screw": 0.0025, "cube": 0.0025, "cap": 0.005, "vial": 0.005}
+# Each label has its own destination; the optional misc destination is separate too.
+PICK_ORDER = {"screw": 0, "cube": 1, "misc": 2, "cap": 3, "vial": 4}
+PICK_HEIGHT = {"screw": 0.0025, "cube": 0.0025, "misc": 0.0025, "cap": 0.005, "vial": 0.005}
 DROP_HEIGHT = 0.100  # fingertip above table; confirm clearance over actual cup rims
 TRAVEL_HEIGHT = 0.180
 MAX_ATTEMPTS = 2  # attempts per location, across fresh detections

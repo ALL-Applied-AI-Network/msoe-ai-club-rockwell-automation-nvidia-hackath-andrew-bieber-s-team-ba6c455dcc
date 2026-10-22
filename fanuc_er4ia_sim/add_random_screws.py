@@ -17,8 +17,9 @@ import sort_config as S
 ASSET = Path(__file__).parent / "assets" / "ISO10642-M6x30-countersunk-screw.stl"
 
 
-def layout(config, count=6, seed=42):
+def layout(config, count=6, seed=42, drops=None):
     rng = random.Random(seed)
+    drops = S.DROP_XY if drops is None else drops
     poses = []
     for _ in range(count):
         for attempt in range(10000):
@@ -26,7 +27,7 @@ def layout(config, count=6, seed=42):
             point = np.array([x, y])
             if np.linalg.norm(point) > S.MAX_RADIUS - 0.025:
                 continue
-            if any(np.linalg.norm(point-p) < S.DROP_RADIUS+0.025 for p in S.DROP_XY.values()):
+            if any(np.linalg.norm(point-p) < S.DROP_RADIUS+0.025 for p in drops.values()):
                 continue
             occupied = list(config.SORT_CUBES) + list(config.SORT_CAPS) + poses
             if any(math.dist((x,y), p[:2]) < 0.055 for p in occupied):
@@ -56,7 +57,7 @@ def stl_points(path=ASSET):
     return np.column_stack((vertices[:,2]+15, vertices[:,0], vertices[:,1])) / 1000
 
 
-def add_random_screws(stage, config, count=6, seed=42):
+def add_random_screws(stage, config, count=6, seed=42, drops=None):
     from pxr import Gf, UsdGeom, UsdPhysics, UsdShade
     points = stl_points()
     material = UsdShade.Material.Define(stage, "/World/ScrewContactMaterial")
@@ -65,7 +66,7 @@ def add_random_screws(stage, config, count=6, seed=42):
     friction.CreateDynamicFrictionAttr(0.5)
     friction.CreateRestitutionAttr(0.0)
     paths = []
-    for i, (x, y, yaw) in enumerate(layout(config, count, seed)):
+    for i, (x, y, yaw) in enumerate(layout(config, count, seed, drops)):
         path = f"/World/SortScrew{i}"
         if stage.GetPrimAtPath(path):
             raise ValueError(f"{path} already exists")
@@ -104,6 +105,22 @@ def add_random_screws(stage, config, count=6, seed=42):
                 bindingStrength=UsdShade.Tokens.weakerThanDescendants, materialPurpose="physics")
         paths.append(path)
     return paths
+
+
+def add_misc_demo(stage, config, screw_count=6, seed=42, drops=None):
+    """One purple 16 x 7 x 8 mm block, outside all supported shape/colour classes."""
+    from pxr import Gf, UsdGeom, UsdPhysics
+    x, y, yaw = layout(config, screw_count + 1, seed, drops)[-1]
+    block = UsdGeom.Cube.Define(stage, "/World/SortMisc0")
+    block.CreateSizeAttr(1.0)
+    block.AddTranslateOp().Set(Gf.Vec3d(x, y, config.TABLE_TOP_Z + config.SURFACE_DZ + .0045))
+    block.AddRotateZOp().Set(yaw)
+    block.AddScaleOp().Set(Gf.Vec3f(.016, .007, .008))
+    block.CreateDisplayColorAttr([(.65, .10, .65)])
+    UsdPhysics.RigidBodyAPI.Apply(block.GetPrim())
+    UsdPhysics.CollisionAPI.Apply(block.GetPrim())
+    UsdPhysics.MassAPI.Apply(block.GetPrim()).CreateMassAttr(.004)
+    return str(block.GetPath())
 
 
 if __name__ == "__main__":

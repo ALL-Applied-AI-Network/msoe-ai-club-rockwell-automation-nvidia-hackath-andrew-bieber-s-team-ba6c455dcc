@@ -25,8 +25,8 @@ import fk
 import ik
 import scene_config as C
 import sort_config as S
-from sort_vision import SamClient, Attempts, build_candidates, write_overlay, roi_from_pixels
-from add_random_screws import add_random_screws
+from sort_vision import SamClient, Attempts, ScanQueue, build_candidates, write_overlay, roi_from_pixels, target_unchanged
+from add_random_screws import add_random_screws, add_misc_demo
 
 
 def ease(t: float) -> float:
@@ -137,6 +137,7 @@ def plan_trajectory(
     drop_z: float,
     jaw_close: float,
     release_slide: float = 0.0,
+    travel_scale: float = 1.0,
 ) -> tuple[list[tuple[str, list[tuple[np.ndarray, float, np.ndarray]]]], float]:
     down = np.array([0.0, 0.0, -1.0])
     q = initial.copy()
@@ -162,7 +163,9 @@ def plan_trajectory(
             start[2] = 0.0
             start /= np.linalg.norm(start)
         steps = []
-        count = round(duration * 2 * 30)
+        if name in ("approach", "carry", "home"):
+            duration *= travel_scale
+        count = max(1, round(duration * 2 * 30))
         for index in range(count):
             t = ease((index + 1) / count)
             position = p0 + (p1 - p0) * t
@@ -195,19 +198,29 @@ def plan_trajectory(
     return phases, worst
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv=None) -> argparse.Namespace:
     base = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--execute", action="store_true", help="Enable robot motion.")
     parser.add_argument("--headless", action="store_true")
-    parser.add_argument("--start-delay", type=float, default=10.0)
-    parser.add_argument("--max-picks", type=int, default=10)
+    parser.add_argument("--start-delay", type=float, default=None)
+    parser.add_argument("--max-picks", type=int, default=50, help="Total attempt cap; 0 means unlimited.")
+    parser.add_argument("--watch", action="store_true", help="Wait and rescan when no eligible objects remain.")
+    parser.add_argument("--idle-seconds", type=float, default=60.0,
+                        help="Wait this many wall-clock seconds between idle scans (default 60).")
+    parser.add_argument("--include-misc", action="store_true", help="Route small depth-confirmed unknowns to their own drop.")
+    parser.add_argument("--misc-demo", action="store_true", help="Add a small purple block to test misc sorting.")
+    parser.add_argument("--fast", action="store_true", help="Mixed precision, up to 3 picks/scan, 25 percent shorter travel phases.")
+    parser.add_argument("--rescan-every", type=int, default=None, help="Override picks per scan (default 1, or 3 with --fast).")
+    parser.add_argument("--batch-scan", action="store_true",
+                        help="Attempt each saved target once, then rescan; changed targets wait for the next pass.")
+    parser.add_argument("--sam-precision", choices=("auto", "fp32"), default=None)
     parser.add_argument("--homography", type=Path)
     parser.add_argument("--sam-python", type=Path, default=Path.home() / "venvs/sam2-check/bin/python")
     parser.add_argument("--sam-worker", type=Path, default=base / "sort_vision.py")
     parser.add_argument("--model-id", default="facebook/sam2.1-hiera-small")
     parser.add_argument("--points-per-side", type=int, default=64)
-    parser.add_argument("--points-per-batch", type=int, default=32)
+    parser.add_argument("--points-per-batch", type=int, default=4)
     parser.add_argument("--roi", help="Camera ROI as x1,y1,x2,y2 pixels; default covers the pickup workspace.")
     parser.add_argument("--min-area-px", type=int, default=20)
     parser.add_argument("--max-area-fraction", type=float, default=0.08)
@@ -242,13 +255,24 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--target-type",
-        choices=("screw", "cube", "cap", "vial", "any"),
+        choices=("screw", "cube", "cap", "vial", "misc", "any"),
         default="any",
         help="Image-class filter; default attempts every supported type.",
     )
     parser.add_argument("--screws", type=int, default=6)
     parser.add_argument("--seed", type=int, default=42)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.batch_scan and args.rescan_every is not None:
+        parser.error("Use --batch-scan or --rescan-every, not both")
+    args.rescan_every = args.rescan_every if args.rescan_every is not None else (3 if args.fast else 1)
+    args.sam_precision = args.sam_precision or ("auto" if args.fast else "fp32")
+    args.start_delay = args.start_delay if args.start_delay is not None else (2.0 if args.fast else 10.0)
+    if args.max_picks < 0 or args.rescan_every < 1 or args.idle_seconds <= 0:
+        parser.error("max-picks must be >= 0; rescan-every and idle-seconds must be positive")
+    if args.max_objects < 1:
+        parser.error("max-objects must be positive")
+    if args.target_type == "misc" and not args.include_misc:
+        parser.error("--target-type misc requires --include-misc")
     args.resolution = tuple(int(v) for v in parse_csv(args.resolution, 2, "--resolution"))
     args.camera_eye = parse_csv(args.camera_eye, 3, "--camera-eye")
     args.camera_target = parse_csv(args.camera_target, 3, "--camera-target")
@@ -260,6 +284,13 @@ def main() -> None:
     args = parse_args()
     print("[vision] mixed-object sorting; image labels, smallest categories first", flush=True)
     homography = load_homography(args.homography)
+    active_drops = dict(S.DROP_XY)
+    if args.include_misc:
+        active_drops["misc"] = S.MISC_DROP_XY
+    print("[vision] destinations: " + ", ".join(
+        f"{label} -> {name} {active_drops[name]}" for label, name in S.BIN_FOR.items()
+        if name in active_drops), flush=True)
+    started_run = time.monotonic()
     if not args.execute:
         print("[vision] DRY RUN: world targets will be printed, but the robot will not move.", flush=True)
 
@@ -284,7 +315,14 @@ def main() -> None:
         "complete": False,
         "picks": [],
         "error": None,
+        "options": vars(args).copy(),
+        "drops": active_drops,
     }
+    report["options"] = {k: str(v) if isinstance(v, Path) else v for k, v in report["options"].items()}
+    report_path = output / "vision_pick_report.json"
+    def save_report():
+        report["wall_seconds"] = round(time.monotonic() - started_run, 3)
+        report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
     from isaacsim import SimulationApp
 
@@ -302,6 +340,7 @@ def main() -> None:
     rgb_annotator = None
     depth_annotator = None
     render_product = None
+    interrupted = False
     try:
         import omni.replicator.core as rep
         import omni.usd
@@ -317,13 +356,15 @@ def main() -> None:
         stage = omni.usd.get_context().get_stage()
         cell.build(stage)
         if args.screws:
-            add_random_screws(stage, C, args.screws, args.seed)
+            add_random_screws(stage, C, args.screws, args.seed, active_drops)
+        if args.misc_demo:
+            add_misc_demo(stage, C, args.screws, args.seed, active_drops)
 
         bodies = [
             prim
             for prim in stage.Traverse()
             if str(prim.GetPath()).startswith(
-                ("/World/SortCube", "/World/SortCap", "/World/SortVial", "/World/SortScrew")
+                ("/World/SortCube", "/World/SortCap", "/World/SortVial", "/World/SortScrew", "/World/SortMisc")
             )
             and prim.HasAPI(UsdPhysics.RigidBodyAPI)
         ]
@@ -368,15 +409,44 @@ def main() -> None:
         fy = fx
         cx = image_width / 2.0
         cy = image_height / 2.0
+        world_to_camera = camera_to_world.GetInverse()
+        xmin, xmax, ymin, ymax = args.workspace
+        scan_xy = [(x, y) for x in (xmin, xmax) for y in (ymin, ymax)]
+        for x, y in active_drops.values():
+            scan_xy.extend((x+dx, y+dy) for dx in (-S.DROP_RADIUS, S.DROP_RADIUS)
+                           for dy in (-S.DROP_RADIUS, S.DROP_RADIUS))
+        offsets = []
+        for x, y in scan_xy:
+            p = world_to_camera.Transform(Gf.Vec3d(x, y, C.TABLE_TOP_Z+C.SURFACE_DZ))
+            if p[2] >= 0:
+                raise ValueError("Pickup/drop area is behind the scan camera")
+            offsets.append([fx*p[0]/(-p[2]), -fy*p[1]/(-p[2])])
+        offsets = np.asarray(offsets)
+        # Keep destination areas visible without changing the camera's metric mapping.
+        # The live USD intrinsics below also drive pixel->world and depth conversion.
+        margin = min(96.0, image_width/10, image_height/10)
+        extent = np.maximum(np.max(np.abs(offsets), axis=0), 1e-6)
+        scale = min(1.0, (cx-margin)/extent[0], (cy-margin)/extent[1])
+        if scale < .999:
+            if homography is not None:
+                raise ValueError("Camera does not cover all destinations. Reframe it and recalibrate the homography.")
+            focal_length = float(focal_length * scale)
+            camera_prim.GetFocalLengthAttr().Set(focal_length)
+            fx *= scale
+            fy *= scale
+            offsets *= scale
+            print(f"[vision] Scan camera widened to focal length {focal_length:.3f} "
+                  "to include all destination areas.", flush=True)
+        pixels = offsets + [cx, cy]
         if args.roi is None:
-            world_to_camera = camera_to_world.GetInverse()
-            xmin,xmax,ymin,ymax = args.workspace
-            pixels = []
-            for x in (xmin,xmax):
-                for y in (ymin,ymax):
-                    p = world_to_camera.Transform(Gf.Vec3d(x,y,C.TABLE_TOP_Z+C.SURFACE_DZ))
-                    pixels.append([cx + fx*p[0]/(-p[2]), cy - fy*p[1]/(-p[2])])
             args.roi = roi_from_pixels(pixels,image_width,image_height)
+        else:
+            x0, y0, x1, y1 = parse_csv(args.roi, 4, "--roi")
+            if not (np.all(pixels[:, 0] >= x0) and np.all(pixels[:, 0] < x1)
+                    and np.all(pixels[:, 1] >= y0) and np.all(pixels[:, 1] < y1)):
+                raise ValueError("Custom ROI misses pickup/drop areas; remove --roi to cover all destinations")
+        report["scan_roi"] = args.roi
+        report["camera_focal_length"] = focal_length
 
         def measured() -> np.ndarray:
             values = arm.get_joint_positions()
@@ -475,14 +545,40 @@ def main() -> None:
             args.model_id,
             args.points_per_side,
             args.points_per_batch,
+            args.sam_precision,
         )
 
         attempts = Attempts()
-        for cycle in range(args.max_picks):
+        queue = ScanQueue(args.rescan_every, whole_batch=args.batch_scan)
+        if args.batch_scan:
+            print("[vision] Batch mode: one SAM scan per pass; RGB checks before each pick. "
+                  "Idle polling waits until all motion and the verification scan finish.", flush=True)
+        cycle = pick_count = 0
+        reference_rgb = None
+        scan_path = None
+        from PIL import Image
+        while args.max_picks == 0 or pick_count < args.max_picks:
+            cycle_started = time.monotonic()
             cycle_dir = output / f"cycle_{cycle:02d}"
+            cycle += 1
             image_path, depth = capture(cycle_dir)
-            response = sam.detect(
-                {
+            rgb = np.asarray(Image.open(image_path).convert("RGB"))
+            candidates = queue.available(attempts)
+            cycle_report: dict[str, Any] = {"cycle": cycle-1, "image": str(image_path)}
+            report["picks"].append(cycle_report)
+            while candidates and not target_unchanged(reference_rgb, rgb, candidates[0]):
+                if args.batch_scan:
+                    deferred = candidates[0]
+                    cycle_report.setdefault("deferred_targets", []).append(deferred)
+                    print(f"[vision] Cached {deferred['label']} changed; deferring to the next pass.", flush=True)
+                    queue.discard(deferred)
+                    candidates = queue.available(attempts)
+                else:
+                    print("[vision] Cached target changed; taking a fresh SAM scan.", flush=True)
+                    queue.refresh([])
+                    candidates = []
+            if not candidates:
+                response = sam.detect({
                     "image": str(image_path),
                     "output_dir": str(cycle_dir),
                     "roi": args.roi,
@@ -490,34 +586,48 @@ def main() -> None:
                     "max_area_fraction": args.max_area_fraction,
                     "max_objects": args.max_objects,
                     "border_margin_px": args.border_margin_px,
-                }
-            )
-            detections = response["detections"]
-            print(
-                f"[vision] cycle={cycle} masks={response['raw_mask_count']} "
-                f"objects={len(detections)} overlay={response['overlay']}",
-                flush=True,
-            )
-            cycle_report: dict[str, Any] = {
-                "cycle": cycle,
-                "image": str(image_path),
-                "overlay": response["overlay"],
-                "detections": detections,
-            }
-            report["picks"].append(cycle_report)
-
-            candidates, rejected = build_candidates(detections, plane_projector, args.workspace)
-            candidates = [c for c in candidates if args.target_type in ("any", c["kind"])]
-            candidates = candidates[:args.max_objects]
-            if args.target_body is not None:
-                # Explicit diagnostic override only; normal selection uses image labels.
-                candidates = [c for c in candidates if
-                              (nearest_body(np.array(c["world_xy"])) or [None])[0] == args.target_body]
-            cycle_report["rejected"] = rejected
+                })
+                detections = response["detections"]
+                cycle_report.update(detections=detections, overlay=response["overlay"],
+                                    scan_seconds=response.get("seconds"), cached=False)
+                def height_at(u, v):
+                    x, y = int(round(u)), int(round(v))
+                    patch = depth[max(0,y-1):min(image_height,y+2), max(0,x-1):min(image_width,x+2)]
+                    valid = patch[np.isfinite(patch) & (patch > 0)]
+                    if not valid.size:
+                        return float("nan")
+                    z = float(np.median(valid))
+                    p = camera_to_world.Transform(Gf.Vec3d((u-cx)/fx*z, -(v-cy)/fy*z, -z))
+                    return float(p[2] - (C.TABLE_TOP_Z + C.SURFACE_DZ))
+                candidates, rejected = build_candidates(detections, plane_projector, args.workspace,
+                    drops=active_drops, allow_misc=args.include_misc, height_at=height_at,
+                    inspect_drop_areas=True)
+                if args.watch:
+                    attempts.observe(candidates)
+                candidates = [c for c in candidates if args.target_type in ("any", c["kind"])]
+                if args.target_body is not None:
+                    candidates = [c for c in candidates if
+                        (nearest_body(np.array(c["world_xy"])) or [None])[0] == args.target_body]
+                rejected.extend({"id": c["id"], "reason": "retry limit reached"}
+                                for c in candidates if attempts.count(c) >= S.MAX_ATTEMPTS)
+                # Exhausted objects must not hide other eligible targets behind the scan cap.
+                candidates = attempts.available(candidates)[:args.max_objects]
+                cycle_report["rejected"] = rejected
+                queue.refresh(candidates)
+                reference_rgb = rgb.copy()
+                scan_path = str(image_path)
+                print(f"[vision] scan={cycle-1} masks={response['raw_mask_count']} "
+                      f"targets={len(candidates)} seconds={response.get('seconds')} "
+                      f"overlay={cycle_dir / 'targets.png'}", flush=True)
+            else:
+                cycle_report.update(cached=True, scan_seconds=0.0)
+                print(f"[vision] Reusing scan: {len(candidates)} remaining targets.", flush=True)
+            cycle_report["source_scan"] = scan_path
             cycle_report["world_targets"] = candidates
             write_overlay(image_path, candidates, cycle_dir / "targets.png")
             print("[vision] order: " + ", ".join(
-                f"{c['label']} ({c['world_xy'][0]:.3f},{c['world_xy'][1]:.3f}) -> {c['drop']}"
+                f"{c['label']} ({c['world_xy'][0]:.3f},{c['world_xy'][1]:.3f}) "
+                f"from {c['source_zone']} -> {c['drop']}"
                 for c in candidates), flush=True)
             candidates = attempts.available(candidates)
             if not args.execute:
@@ -526,12 +636,24 @@ def main() -> None:
                 report["stop_reason"] = "world_coordinate_dry_run"
                 break
             if not candidates:
+                cycle_report["status"] = "no_eligible_detections"
+                save_report()
+                if args.watch:
+                    print(f"[vision] Idle: next SAM scan in {args.idle_seconds:g}s. "
+                          "Still-visible objects with exhausted retries stay skipped.", flush=True)
+                    until = time.monotonic() + args.idle_seconds
+                    while time.monotonic() < until:
+                        tick(initial, C.JAW_OPEN, render=True)
+                        if args.headless:
+                            time.sleep(.01)
+                    continue
                 print("[vision] No eligible detections remain (or attempt limits reached).", flush=True)
                 report["complete"] = True
                 report["stop_reason"] = "no_eligible_detections"
                 break
             chosen = candidates[0]
             attempts.add(chosen)
+            pick_count += 1
             target = PickTarget(chosen["id"], tuple(chosen["center_full_px"]),
                 np.array(chosen["world_xy"]), np.array(chosen["spread_dir"]),
                 chosen["area_px"], chosen["predicted_iou"]*chosen["stability_score"])
@@ -545,28 +667,28 @@ def main() -> None:
             elif object_type == "cap":
                 pick_z = C.SURFACE_DZ + args.cap_pick_height
             drop_z = C.SURFACE_DZ + S.DROP_HEIGHT
-            drop_xy = np.array(S.DROP_XY[chosen["drop"]])
+            drop_xy = np.array(active_drops[chosen["drop"]])
             jaw_close = args.jaw_close if object_type == "cube" else C.JAW_CLOSED
             release_slide = 0.0  # release ABOVE the cup; no lateral slide through its rim
             cycle_report.update(selected=chosen, matched_body=body_path,
                 match_error_mm=None if matched is None else match_distance*1000,
                 planned_pick_z=pick_z, planned_drop_z=drop_z,
                 pickup_verified=None, released=None)
-            phases, worst = plan_trajectory(
-                target,
-                initial,
-                home,
-                limits,
-                tool,
-                pick_z,
-                drop_xy,
-                drop_z,
-                jaw_close,
-                release_slide,
-            )
+            plan_started = time.monotonic()
+            try:
+                phases, worst = plan_trajectory(target, initial, home, limits, tool,
+                    pick_z, drop_xy, drop_z, jaw_close, release_slide,
+                    travel_scale=.75 if args.fast else 1.0)
+            except RuntimeError as exc:
+                cycle_report.update(status="planning_failed", planning_error=str(exc))
+                print(f"[vision] Skipping unplannable {chosen['label']}: {exc}", flush=True)
+                queue.finish(chosen, False)
+                save_report()
+                continue
+            cycle_report["plan_seconds"] = round(time.monotonic() - plan_started, 3)
             cycle_report["max_numerical_ik_error_mm"] = worst * 1000
             print(
-                f"[vision] PICK #{target.detection_id} world=({target.world_xy[0]:.3f},"
+                f"[vision] PICK {pick_count} mask={target.detection_id} world=({target.world_xy[0]:.3f},"
                 f"{target.world_xy[1]:.3f}) body={body_path}",
                 flush=True,
             )
@@ -578,6 +700,7 @@ def main() -> None:
             )
             release_reference = None
             failed_pick = False
+            motion_started = time.monotonic()
             for name, steps in phases:
                 print(f"[vision] {name.upper()}", flush=True)
                 for q, jaw, position in steps:
@@ -620,6 +743,9 @@ def main() -> None:
                         )
             if failed_pick:
                 cycle_report["released"] = False
+                queue.finish(chosen, False)
+                cycle_report["motion_seconds"] = round(time.monotonic() - motion_started, 3)
+                save_report()
                 continue
             if body is not None:
                 final_position = np.array(body.get_world_pose()[0])
@@ -630,16 +756,26 @@ def main() -> None:
             # Let the dumped object settle before the next clean observation.
             for _ in range(30):
                 tick(initial, C.JAW_OPEN, render=True)
+            cycle_report["motion_seconds"] = round(time.monotonic() - motion_started, 3)
+            cycle_report["cycle_seconds"] = round(time.monotonic() - cycle_started, 3)
+            success = cycle_report["pickup_verified"] is True and cycle_report["released"] is True
+            queue.finish(chosen, success)
+            print(f"[vision] RESULT label={chosen['label']} pickup={cycle_report['pickup_verified']} "
+                  f"released={cycle_report['released']} seconds={cycle_report['cycle_seconds']}", flush=True)
+            save_report()
         else:
             report["complete"] = True
             report["stop_reason"] = "max_picks"
 
+    except KeyboardInterrupt:
+        interrupted = True
+        report["stop_reason"] = "interrupted"
+        print("[vision] Interrupted; saving progress.", flush=True)
     except Exception as exc:
         report["error"] = str(exc)
         traceback.print_exc()
     finally:
-        report_path = output / "vision_pick_report.json"
-        report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        save_report()
         print(f"[vision] Report: {report_path}", flush=True)
         if sam is not None:
             sam.close()
@@ -655,7 +791,7 @@ def main() -> None:
                 pass
         if world is not None:
             world.pause()
-        if not args.headless and app.is_running():
+        if not interrupted and not args.headless and app.is_running():
             print("[vision] Finished; window remains open. Close it when done.", flush=True)
             while app.is_running():
                 app.update()

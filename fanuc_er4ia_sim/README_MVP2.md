@@ -1,10 +1,162 @@
 # Mixed-object sorting update
 
+## Separate destinations, batch scanning and automatic corrections (October 20, 2026)
+
+The first screw test on ROSIE measured a **129.8 mm lift, pickup=True**.
+The later screenshot shows `pickup=True released=True` for a screw and a
+yellow cube. Andrew reports that all screws were sorted in that run.
+The new batch mode below has host tests but still needs its own Isaac run.
+
+Install this incremental update with its `install_update.py --sim-dir PATH`.
+It updates six named files, backs up replaced files under `runs/update_backup_*`,
+and preserves the existing scene builder, physical policy, calibration and assets.
+Close the old Isaac window before starting another instance.
+
+From `~/innovation-lab/team-repo/fanuc_er4ia_sim`, run with a GUI:
+
+```bash
+"$HOME/venvs/isaac-check/bin/python" -u vision_sort_objects.py \
+  --execute --include-misc --misc-demo --fast --batch-scan \
+  --watch --idle-seconds 60 --max-picks 0 \
+  --screws 6 --seed 42 \
+  --sam-python "$HOME/venvs/sam2-check/bin/python"
+```
+
+`--batch-scan` runs SAM once, queues the eligible targets, and attempts each
+one once. Order remains screws, cubes, small misc, caps, then vials. Ordinary
+failed grasps and IK failures do not restart SAM halfway through the batch.
+A cheap fresh RGB comparison precedes each cached pickup. Changed targets
+are deferred to the next full scan; other queued targets continue. The batch
+assumes a mostly static table. These image checks cannot guarantee that every
+movement or occlusion is detected.
+
+When the queue is exhausted, the arm has returned home and a full scan checks
+for remaining objects. That scan starts the next pass if targets are eligible.
+Each type/location gets at most two attempts while it remains detected. There
+is no retry of the same queued target twice within a batch. A detected hooked
+object or failed motion tracking still stops the run.
+
+With `--watch`, an empty/exhausted verification scan starts a 60-second idle
+wait, then another scan. This is a delay after the last scan, not a fixed
+wall-clock alarm or a parallel timer. Scans and movement run sequentially;
+no idle scan interrupts a workflow and no missed timer events pile up.
+Eligible objects can be in the pickup workspace OR in the wrong destination
+area. Objects already in their own destination are left alone. Objects outside
+all configured areas remain excluded. New arrivals during a batch wait for
+its end.
+
+Watch mode retires a location's retry history after two consecutive full scans
+without that kind of object there, so later arrivals can use the same location.
+A still-visible failed object is not retried forever. This is location-based
+memory: replacing an object at the same spot before its absence is observed
+will not necessarily reset it. A missed detection is not proof of removal.
+
+`--max-picks 0` removes the overall attempt cap. For a finite first run, omit
+`--watch` and use `--max-picks 50`. The cap counts attempts, and if reached it
+ends the run before any further verification scan. Close the window or use
+Ctrl+C to stop. “No eligible targets” does not prove the entire table is clear.
+The `RESULT` line reports measured simulation pickup/release and cycle time.
+New movable props added while Isaac is playing must be properly configured
+rigid bodies. The optional `--misc-demo` provides one such example at startup.
+
+### Separate destinations
+
+Every recognized label now has its own destination in `sort_config.py`:
+
+| Detected label | Destination | Base XY, metres |
+|---|---|---|
+| Red cube | red | (0.20, 0.25) |
+| Blue cube | blue | (0.20, 0.00) |
+| Yellow cube | yellow | (0.37, 0.34) |
+| Screw | screws | (0.20, -0.25) |
+| Cap | caps | (0.35, -0.35) |
+| Vial | vials | (0.17, -0.43) |
+| Accepted unfamiliar small object | misc | (0.17, 0.43) |
+
+Red, blue and screws keep their previous positions. Yellow, caps, vials and
+misc now have separate positions. Each zone uses a 65 mm centre tolerance;
+the circles do not overlap. The centres are on the supplied tabletop and
+within the configured 540 mm radial limit. These are initial simulation
+targets: that geometric check is not an IK, collision or hardware validation.
+Random screw placement avoids every active drop, so seed 42's positions can
+change. No cups are added to the scene.
+
+The new rule is label-specific: a red cube in the screw zone is picked up and
+sent to red, while a screw in that same zone is ignored. This also applies to
+the misc zone when enabled. Logs show `from screws -> red`, for example.
+Unknown shapes still have to pass the misc graspability/depth checks below.
+
+SAM now inspects the pickup workspace AND destination areas. The camera ROI
+includes their bounds; if needed the virtual camera widens its lens and the
+pixel/depth geometry uses the updated intrinsics. A custom ROI cannot hide
+destinations. A supplied homography is never silently reused after reframing.
+The wider view/ROI may increase scan cost or change small-object segmentation;
+check the new overlays on ROSIE. Piles and occlusion can hide misplaced objects:
+the sorter can only correct objects it can detect and grasp.
+
+Misc is for unfamiliar **small, graspable objects**: footprint length 5–40 mm,
+width 4–10 mm, aspect <=5, compact/confident masks, and measured top height
+4–25 mm from the simulated RGB-D camera. Oversized or flat/invalid-depth masks
+are rejected with a reason. Fragments overlapping a recognized object are
+excluded. `--misc-demo` adds a purple 16 x 7 x 8 mm block to exercise this path.
+This is a graspability filter, not a semantic guarantee for arbitrary clutter.
+
+`--fast` makes these simulation-only changes:
+
+- Without `--batch-scan`, reuse a full SAM scan for at most three successful picks. Capture a fresh
+  image before every pick; if the next target's pixels changed, run SAM again.
+  Refresh after failure, after caps/vials, or after exhausting the queue. Nearby
+  candidates within 60 mm of a picked object are removed from the cached queue.
+- Use CUDA autocast: BF16 when PyTorch reports support, otherwise FP16. CPU
+  stays FP32. Keep 1920 x 1080 resolution, the 64 x 64 point grid and crop layer.
+- Keep four prompts per batch and release SAM's unused CUDA cache after scans.
+- Shorten approach/carry/home durations by 25%; retain descent, gripper, dwell,
+  lift, lower and release timing. The arm still returns to a clear camera pose.
+
+A new object elsewhere may wait until the next full scan. Cached picks assume
+a mostly static table; omit `--batch-scan` and use `--rescan-every 1` when
+objects are being disturbed. The two scan-mode flags cannot be combined.
+For precision-related detection changes, add `--sam-precision fp32`.
+Omit `--fast` for the earlier motion timing and FP32. Scan once per pick is
+the default when neither `--fast` nor `--batch-scan` is present.
+The report now records scan, planning, motion and cycle seconds. Measure these
+on ROSIE; no full-system speedup or OOM fix has been established here.
+
+Nineteen host tests pass, including the OpenCV memory-layout regression, misc
+height/size filtering, known-object fragment rejection, cached-image checks and
+queue invalidation, full-batch retries, deferred targets, and retry reset after
+two absent scans. Routing checks cover all 49 combinations of seven labels
+and seven zones: correct-zone objects stay, wrong-zone objects get their own
+destination. USD construction of six screws plus the misc prop with the new
+zones passed, as did expanded-lens pixel/world round trips without rendering.
+New Isaac motion, GPU mixed precision and physical operation have not been run
+in this environment. The physical policy retains its existing enable gates,
+full scans and cap/vial pause. The shared configuration supplies the new
+destinations, but batch/watch and wrong-zone correction are enabled only by the
+Isaac runner. The physical policy still excludes all destination areas and has
+no misc recognition. This update does not lower the 100 mm cup-release height
+for the planned no-cup physical test.
+
+Implementation references: [SAM 2 mixed-precision examples](https://github.com/facebookresearch/sam2),
+[PyTorch autocast](https://docs.pytorch.org/docs/stable/amp.html).
+
+After a successful ROSIE run, commit only the updated files from the sim folder:
+
+```bash
+git add -- sort_config.py sort_vision.py vision_sort_objects.py add_random_screws.py test_sorting.py README_MVP2.md
+git commit -m "Add separate sort zones, batch scans, and misplaced-object correction"
+git push origin feature/mvp2
+```
+
+Then pull `feature/mvp2` on Windows before making further edits there.
+
+## Original setup and physical-client notes
+
 Start with `vision_sort_objects.py` in your existing Isaac repo. It uses the
 motion planner from your uploaded runner and adds image-based labels, random
-screws, three drop locations, and a maximum of two attempts per object location.
+screws, separate drop locations, and a maximum of two attempts per object location.
 
-The order is **screws → cubes → caps → vials**, with smaller footprints first
+With misc disabled, the order is **screws → cubes → caps → vials**, with smaller footprints first
 within each group. This is an explicit practical priority, not a claim that a
 30 mm screw is shorter than a 10 mm cube. Every cycle takes a fresh image.
 
@@ -77,20 +229,11 @@ Screws use the organizer's actual M6x30 STL. The physics model uses separate
 shaft/head colliders, estimated 6 g mass, and estimated contact friction.
 This validates the scene construction, not physical grip reliability.
 
-## 2. Set the three drops
+## 2. Set the destinations
 
-Edit only `sort_config.py` for this:
-
-| Drop | Initial base XY, metres | Initial contents |
-|---|---|---|
-| left | `(0.20, 0.25)` | Red cubes |
-| middle | `(0.20, 0.00)` | Blue cubes |
-| right | `(0.20, -0.25)` | Screws, yellow cubes, caps, vials |
-
-This is a starting grouping: five requested categories cannot each have an
-exclusive destination with only three cups. Your supplied scene also contains
-yellow cubes, which are detected. Change `BIN_FOR` to group things differently,
-or add drop entries for more containers.
+Edit `DROP_XY`, `MISC_DROP_XY`, and `BIN_FOR` in `sort_config.py` for this.
+The current seven assignments are listed above. Keep their tolerance circles
+separate so a correctly sorted object's destination is unambiguous.
 
 Containers are not added to the simulation or visually located. Objects are
 released 100 mm above the work surface at the configured XY positions. Before
@@ -180,7 +323,7 @@ stationary target, rather than during descent/carry.
 
 ## Checks completed here
 
-- Eight host tests passed: calibration/image resizing, UF0 conversion, synthetic
+- The original eight host tests covered calibration/image resizing, UF0 conversion, synthetic
   masks for all six labels, rotated-cube alignment, pick order, location-based
   retries/drop exclusion, action chunking/gripper timing, lag handling, and policy
   execution/hold behavior.
