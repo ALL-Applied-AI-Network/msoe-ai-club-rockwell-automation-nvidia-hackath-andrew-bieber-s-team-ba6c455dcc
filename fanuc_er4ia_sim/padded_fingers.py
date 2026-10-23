@@ -14,7 +14,7 @@ small lead-in chamfer on the pad's tip edge.  Pad-to-pad gap:
 Sets (chosen in scene_config.py with FINGER_SET=<name>):
     padded     PAD_FACE 4 mm,   stroke 6 mm   ->  8 closed / 20 open  (cubes, small vials)
     cap        PAD_FACE 7 mm,   stroke 6 mm   -> 14 closed / 26 open  (caps, vials; NOT cubes)
-    universal  PAD_FACE 4.5 mm, stroke 8.5 mm ->  9 closed / 26 open  (everything; longer-stroke gripper)
+    universal  PAD_FACE 4.5 mm, stroke 8.5 mm ->  9 closed / 26 open  (experimental; not the installed SMC)
 
 See what fits, no Isaac needed (extra args are your own part widths in mm):
     FINGER_SET=cap python padded_fingers.py
@@ -24,6 +24,16 @@ See what fits, no Isaac needed (extra args are your own part widths in mm):
 import sys
 
 import scene_config as C
+
+_REQUIRED_CONFIG = (
+    "FINGER_SET", "FINGER_LENGTH", "FINGER_WIDTH", "PAD_STEP_X", "PAD_FACE",
+    "PAD_T", "PAD_LEAD_IN", "JAW_CLOSED", "JAW_OPEN",
+)
+_missing = [name for name in _REQUIRED_CONFIG if not hasattr(C, name)]
+if _missing:
+    raise RuntimeError(
+        "scene_config is missing padded-finger settings: " + ", ".join(_missing)
+    )
 
 
 def enabled():
