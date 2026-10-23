@@ -240,22 +240,57 @@ CUBE_EDGE = 0.010  # hackathon: 2 mm clearance inside measured 12 mm open gap
 # Target contact at the hooked ends, allowing 0.3 mm per-jaw seating travel.
 FINGER_INNER_TIP = (SCALLOP_R**2 - SCALLOP_ABOVE_TIP**2) ** 0.5
 
-# Finger set: "scallop" (original AA-pocket blades) or "padded" (flat blades with
-# relieved, rubber-padded tips, from Padded_Gripper_Test.STEP).  Switch per run:
-#   FINGER_SET=padded python <script>
-# PAD_FACE_MM overrides the relief depth (STEP value: 4 mm -> pad gap 8 closed / 20 open).
+# Finger sets, chosen per run: FINGER_SET=<name> python <script>
+#   scallop    original AA-pocket blades (default)
+#   padded     4 mm relief + 1 mm pad: 8 mm closed / 20 mm open
+#   cap        7 mm relief + 1 mm pad: 14 mm closed / 26 mm open
+#   universal  4.5 mm relief + 1 mm pad: 9 mm closed / 26 mm open; requires
+#              8.5 mm per-jaw travel, not the installed SMC MHZL2-16D2.
+# The installed SMC's real 6 mm-per-jaw stroke remains the default. Environment
+# overrides are intended only for explicit geometry experiments.
 import os as _os
 
 FINGER_SET = _os.environ.get("FINGER_SET", "scallop")
-PAD_STEP_X = 0.044  # relief starts here, measured from the carriage end (STEP: 44 mm)
-PAD_T = 0.001  # rubber pad thickness
-PAD_FACE = float(_os.environ.get("PAD_FACE_MM", "4")) / 1000.0
-if FINGER_SET == "padded":
-    assert PAD_STEP_X < FINGER_LENGTH
-    assert PAD_FACE >= 0.0 and PAD_FACE + PAD_T <= FINGER_WIDTH - 0.003, (
-        "PAD_FACE too deep: less than 3 mm of support would remain behind the pad"
-    )
-    # Flat pad faces replace the scallop's inner-tip half-gap at full close.
+_PRESETS = {
+    # name: (pad-face offset [m], per-jaw stroke [m] or None for installed SMC)
+    "padded": (0.004, None),
+    "cap": (0.007, None),
+    "universal": (0.0045, 0.0085),
+}
+PAD_STEP_X = 0.044
+PAD_T = 0.001
+PAD_LEAD_IN = 0.002
+PAD_FACE = 0.004
+
+if FINGER_SET != "scallop":
+    try:
+        PAD_FACE, _preset_stroke = _PRESETS[FINGER_SET]
+    except KeyError:
+        choices = ", ".join(("scallop", *_PRESETS))
+        raise ValueError(f"invalid FINGER_SET {FINGER_SET!r}; choose one of: {choices}") from None
+
+    try:
+        if "PAD_FACE_MM" in _os.environ:
+            PAD_FACE = float(_os.environ["PAD_FACE_MM"]) / 1000.0
+        _stroke = _preset_stroke
+        if "JAW_STROKE_MM" in _os.environ:
+            _stroke = float(_os.environ["JAW_STROKE_MM"]) / 1000.0
+    except ValueError as exc:
+        raise ValueError("PAD_FACE_MM and JAW_STROKE_MM must be numeric millimetres") from exc
+
+    if not 0.0 <= PAD_STEP_X < FINGER_LENGTH:
+        raise ValueError("PAD_STEP_X must lie within the finger length")
+    if not (0.0 <= PAD_FACE and PAD_FACE + PAD_T <= FINGER_WIDTH - 0.003):
+        raise ValueError("PAD_FACE too deep: at least 3 mm of support must remain")
+    if _stroke is not None:
+        if _stroke <= 0.0:
+            raise ValueError("JAW_STROKE_MM must be greater than zero")
+        JAW_STROKE = _stroke
+        JAW_OPEN = JAW_CLOSED + JAW_STROKE
+        # Longer experimental travel needs narrower invisible carriage proxies.
+        CARRIAGE_W = min(CARRIAGE_W, 2.0 * (0.0139 - JAW_OPEN) - 0.0008)
+        if CARRIAGE_W <= 0.004:
+            raise ValueError("jaw stroke is too long for the carriage proxies")
     FINGER_INNER_TIP = PAD_FACE
 CUBE_TIP_CLEARANCE = TIP_CLEARANCE
 CUBE_JAW_HALF_TARGET = max(JAW_CLOSED, CUBE_EDGE / 2 - FINGER_INNER_TIP - 0.0003)
