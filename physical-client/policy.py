@@ -74,6 +74,7 @@ class Policy:
         self.state = "start"
         self.selected = None
         self.picks = 0
+        self.drop_counts = {}
         self.cycle = 0
         self.halted = False
         self.preview_done = False
@@ -151,7 +152,10 @@ class Policy:
                 reason = "kind not enabled for this physical test"
             elif not np.isfinite(t.get("short_mm", float("nan"))):
                 reason = "missing finite grasp width"
-            elif not 0 < t["short_mm"] <= S.PHYSICAL_MAX_GRASP_WIDTH_MM:
+            elif not 0 < t["short_mm"] or (
+                t["short_mm"] > S.PHYSICAL_MAX_GRASP_WIDTH_MM
+                and t["kind"] not in getattr(S, "PHYSICAL_VERIFIED_FIT_KINDS", ())
+            ):
                 reason = "grasp wider than the configured jaw clearance"
             if reason is None:
                 try:
@@ -165,6 +169,27 @@ class Policy:
             else:
                 eligible.append(t)
         return eligible, disabled
+
+    def next_drop_xy(self, target):
+        name = target["drop"]
+        origin = np.asarray(S.DROP_XY[name], dtype=float)
+        candidates = []
+        offsets = ((0,0),(-.04,0),(0,-.04),(.04,0),(0,.04),
+                   (-.04,-.04),(-.04,.04),(.04,-.04),(.04,.04))
+        for dx, dy in offsets:
+            if math.hypot(dx, dy) > S.DROP_RADIUS:
+                continue
+            xy = origin + [dx, dy]
+            try:
+                self.validate(base_to_tcp(
+                    *xy, S.SURFACE_Z + S.DROP_HEIGHT, 0, 1))
+            except ValueError:
+                continue
+            candidates.append(xy.tolist())
+        index = self.drop_counts.get(name, 0)
+        if index >= len(candidates):
+            raise ValueError(f"Destination {name} has no unused landing spots")
+        return candidates[index]
 
     def enqueue(self, start, poses, next_state):
         # Build the whole plan before publishing any rows. A later invalid pose
@@ -273,6 +298,7 @@ class Policy:
                              exhausted_visible=len(eligible))
                     return self.hold(obs)
                 t = self.selected = choices[0]
+                t["drop_xy"] = self.next_drop_xy(t)
                 self.attempts.add(t)
                 self.picks += 1
                 x, y = t["world_xy"]
@@ -311,7 +337,7 @@ class Policy:
                     level = [*current[:2], above[2], *current[3:6], 1.0]
                     self.enqueue(current, [level, above, pick, opened, up], "rescan")
                 else:
-                    xy = S.DROP_XY[t["drop"]]
+                    xy = t.get("drop_xy", S.DROP_XY[t["drop"]])
                     above = base_to_tcp(*xy, S.SURFACE_Z + S.TRAVEL_HEIGHT, current[5], 1)
                     drop = base_to_tcp(*xy, S.SURFACE_Z + S.DROP_HEIGHT, current[5], 1)
                     opened = [*drop[:6], 0.0]
@@ -320,6 +346,8 @@ class Policy:
                     self.enqueue(current, [level, above, drop, opened, retreat], "released")
                     self.log("carry", pickup_verified=False, reason="source no longer detected")
             elif self.state == "released":
+                name = self.selected["drop"]
+                self.drop_counts[name] = self.drop_counts.get(name, 0) + 1
                 self.log("release_commanded", label=self.selected["label"], release_verified=False)
                 if S.PAUSE_AFTER_LARGE_OBJECT and self.selected["kind"] in ("cap", "vial"):
                     return self.halt(obs, "Cap/vial attempt finished; inspect for hooked object before next rollout")

@@ -37,13 +37,13 @@ PICK_ORDER = {"screw": 0, "cube": 1, "misc": 2, "cap": 3, "vial": 4}
 PICK_HEIGHT = {"screw": 0.0025, "cube": 0.0025, "misc": 0.0025, "cap": 0.005, "vial": 0.005}
 DROP_HEIGHT = 0.010  # physical-client-only: proposed bare-table release, verify in the cell
 TRAVEL_HEIGHT = 0.180
-MAX_ATTEMPTS = 2  # attempts per location, across fresh detections
+MAX_ATTEMPTS = 2
 ATTEMPT_RADIUS = 0.020
 MAX_PICKS = 20
 
 # Real robot: explicitly enable only after checking an overlay and measured poses.
-PHYSICAL_EXECUTE = False
-PHYSICAL_POSES_CONFIRMED = False
+PHYSICAL_EXECUTE = True
+PHYSICAL_POSES_CONFIRMED = True
 # Both must be set intentionally; keeping them separate makes preview runs simple.
 SURFACE_Z = -0.0051
 UF0_Z_MM = -330.0
@@ -66,3 +66,5 @@ PHYSICAL_MAX_GRASP_WIDTH_MM = 11.0
 PHYSICAL_INSPECT_DROP_AREAS = True
 PHYSICAL_WATCH = False
 PHYSICAL_IDLE_SECONDS = 60.0
+
+PHYSICAL_VERIFIED_FIT_KINDS = ("screw", "cube")
