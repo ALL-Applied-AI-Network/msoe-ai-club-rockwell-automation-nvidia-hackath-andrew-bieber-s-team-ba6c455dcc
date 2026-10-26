@@ -17,7 +17,8 @@ import time
 import numpy as np
 from calibration.geometry import load, project as camera_project, pixel_to_base
 import sort_config as S
-from sort_vision import SamClient, Attempts, build_candidates, write_overlay, roi_from_pixels
+from sort_vision import (SamClient, Attempts, ScanQueue, target_unchanged,
+                         build_candidates, write_overlay, roi_from_pixels)
 from camera_check import draw_mapping, check_frame_size
 
 
@@ -75,6 +76,14 @@ class Policy:
         self.selected = None
         self.picks = 0
         self.drop_counts = {}
+        self.drop_reservations = {}
+        self.observed_objects = []
+        self.batch_queue = ScanQueue(whole_batch=True)
+        self.batch_reference = None
+        self.batch_number = 0
+        self.batch_attempt_start = 0
+        self.batch_idle_passes = 0
+        self.batch_active = False
         self.cycle = 0
         self.halted = False
         self.preview_done = False
@@ -134,6 +143,10 @@ class Policy:
             return pixel_to_base(cam, (u * cw / w, v * ch / h), z=S.SURFACE_Z + height)[:2]
         targets, rejected = build_candidates(masks, project,
             inspect_drop_areas=S.PHYSICAL_INSPECT_DROP_AREAS)
+        # Correctly sorted objects are excluded from pickup targets, but still
+        # occupy landing spots. Reuse the same masks: this is NOT another SAM call.
+        self.observed_objects, _ = build_candidates(masks, project, exclude_drops=False,
+            inspect_drop_areas=S.PHYSICAL_INSPECT_DROP_AREAS)
         eligible, disabled = self.motion_targets(targets)
         write_overlay(image_path, targets, folder / "targets.png")
         (folder / "targets.json").write_text(json.dumps({"targets": targets,
@@ -186,10 +199,48 @@ class Policy:
             except ValueError:
                 continue
             candidates.append(xy.tolist())
-        index = self.drop_counts.get(name, 0)
-        if index >= len(candidates):
-            raise ValueError(f"Destination {name} has no unused landing spots")
-        return candidates[index]
+        occupied = [t["world_xy"] for t in self.observed_objects]
+        occupied.extend(xy for spots in self.drop_reservations.values() for xy in spots)
+        for xy in candidates:
+            if all(np.linalg.norm(np.asarray(xy) - p) >= .035 for p in occupied):
+                return xy
+        raise ValueError(f"Destination {name} has no clear unused landing spots")
+
+    @staticmethod
+    def batch_mode():
+        mode = S.PHYSICAL_SCAN_MODE
+        if mode not in ("batch", "per_pick"):
+            raise ValueError("PHYSICAL_SCAN_MODE must be 'batch' or 'per_pick'")
+        return mode == "batch"
+
+    def begin_pick(self, current, target):
+        t = self.selected = dict(target)
+        t["drop_xy"] = self.next_drop_xy(t)
+        x, y = t["world_xy"]
+        r = (t["yaw_base_deg"] + S.TCP_R_FOR_AXIS_X + 90) % 180 - 90
+        z = S.SURFACE_Z + S.PICK_HEIGHT[t["kind"]]
+        hover = base_to_tcp(x, y, S.SURFACE_Z + S.TRAVEL_HEIGHT, r, 0)
+        pick = base_to_tcp(x, y, z, r, 0)
+        close = [*pick[:6], 1.0]
+        lift = [*hover[:6], 1.0]
+        # Lift vertically before horizontal travel, including between cached picks.
+        level = [*current[:2], hover[2], *current[3:6], current[6]]
+        self.enqueue(current, [level, hover, pick, close, lift], "carry")
+        self.attempts.add(t)
+        self.picks += 1
+        self.log("attempt", label=t["label"], xy=t["world_xy"], drop=t["drop"],
+                 pickup_verified=False)
+
+    def carry_to_drop(self, current, reason):
+        t = self.selected
+        xy = t.get("drop_xy", S.DROP_XY[t["drop"]])
+        above = base_to_tcp(*xy, S.SURFACE_Z + S.TRAVEL_HEIGHT, current[5], 1)
+        drop = base_to_tcp(*xy, S.SURFACE_Z + S.DROP_HEIGHT, current[5], 1)
+        opened = [*drop[:6], 0.0]
+        retreat = [*above[:6], 0.0]
+        level = [*current[:2], above[2], *current[3:6], 1.0]
+        self.enqueue(current, [level, above, drop, opened, retreat], "released")
+        self.log("carry", pickup_verified=False, reason=reason)
 
     def enqueue(self, start, poses, next_state):
         # Build the whole plan before publishing any rows. A later invalid pose
@@ -281,7 +332,8 @@ class Policy:
                     return self.halt(obs, "Start with an empty, open gripper")
                 self.enqueue(current, self.scan_poses(current), "detect")
             elif self.state == "detect":
-                if S.MAX_PICKS > 0 and self.picks >= S.MAX_PICKS:
+                batch = self.batch_mode()
+                if not batch and S.MAX_PICKS > 0 and self.picks >= S.MAX_PICKS:
                     return self.halt(obs, "Attempt limit reached")
                 detected = self.detect(obs)
                 self.attempts.observe(detected)
@@ -289,7 +341,24 @@ class Policy:
                 if disabled:
                     self.log("disabled_targets", targets=disabled)
                 choices = self.attempts.available(eligible)
+                if batch:
+                    # Always scan after the last batch, even at the attempt cap.
+                    # Remaining detections are evidence for recovery, not a score.
+                    self.log("batch_scan", batch=self.batch_number + 1,
+                             attempts=self.picks, remaining_eligible=len(eligible),
+                             retryable=len(choices), pickup_verified=False,
+                             release_verified=False)
+                    if S.MAX_PICKS > 0 and self.picks >= S.MAX_PICKS:
+                        return self.halt(obs, "Attempt limit reached; final batch scan saved")
+                    if self.batch_active and self.picks == self.batch_attempt_start:
+                        self.batch_idle_passes += 1
+                    else:
+                        self.batch_idle_passes = 0
+                    self.batch_active = False
+                    if choices and self.batch_idle_passes >= S.PHYSICAL_BATCH_MAX_IDLE_PASSES:
+                        return self.halt(obs, "Cached targets repeatedly changed; inspect latest overlay")
                 if not choices:
+                    self.batch_idle_passes = 0
                     if not S.PHYSICAL_WATCH:
                         return self.halt(obs, "No eligible detections; inspect overlay for missed/exhausted objects")
                     self.idle_until = time.monotonic() + S.PHYSICAL_IDLE_SECONDS
@@ -297,28 +366,44 @@ class Policy:
                     self.log("idle", seconds=S.PHYSICAL_IDLE_SECONDS,
                              exhausted_visible=len(eligible))
                     return self.hold(obs)
-                t = self.selected = choices[0]
-                t["drop_xy"] = self.next_drop_xy(t)
-                self.attempts.add(t)
-                self.picks += 1
-                x, y = t["world_xy"]
-                r = t["yaw_base_deg"] + S.TCP_R_FOR_AXIS_X
-                r = (r + 90) % 180 - 90  # parallel-jaw symmetry
-                z = S.SURFACE_Z + S.PICK_HEIGHT[t["kind"]]
-                hover = base_to_tcp(x, y, S.SURFACE_Z + S.TRAVEL_HEIGHT, r, 0)
-                pick = base_to_tcp(x, y, z, r, 0)
-                close = [*pick[:6], 1.0]
-                lift = [*hover[:6], 1.0]
-                # Reach the hover Z vertically at the scan point before horizontal travel.
-                level = [*current[:2], hover[2], *current[3:6], current[6]]
-                self.enqueue(current, [level, hover, pick, close, lift], "carry")
-                self.log("attempt", label=t["label"], xy=t["world_xy"], drop=t["drop"],
-                         pickup_verified=False)
+                if batch:
+                    if any(t["kind"] not in ("screw", "cube") for t in choices):
+                        return self.halt(obs, "Batch mode supports cubes and screws; use per_pick for other kinds")
+                    self.batch_number += 1
+                    self.batch_active = True
+                    self.batch_attempt_start = self.picks
+                    self.batch_queue.refresh(choices)
+                    self.batch_reference = np.asarray(obs["images"]["table"], dtype=np.uint8).copy()
+                    self.state = "batch_next"
+                else:
+                    self.begin_pick(current, choices[0])
+            elif self.state == "batch_next":
+                # Only use cached geometry from the same clear, settled camera pose.
+                # A changed target waits for the NEXT full scan, while unchanged
+                # neighbours can still be attempted during this pass.
+                choices = self.batch_queue.available(self.attempts)
+                if S.MAX_PICKS > 0 and self.picks >= S.MAX_PICKS:
+                    choices = []
+                for t in choices:
+                    if not target_unchanged(self.batch_reference,
+                            np.asarray(obs["images"]["table"], dtype=np.uint8), t):
+                        self.batch_queue.discard(t)
+                        self.log("cached_target_deferred", label=t["label"], xy=t["world_xy"])
+                        continue
+                    self.begin_pick(current, t)
+                    self.batch_queue.finish(t, False)  # result intentionally unknown until rescan
+                    break
+                else:
+                    self.batch_queue.refresh([])
+                    self.enqueue(current, self.scan_poses(current), "detect")
             elif self.state == "carry":
                 # Clear the pickup view before checking the source. The gripper
                 # directly above a missed object can hide it from the table camera.
                 # Keep the grasp commanded closed throughout this scan move.
-                self.enqueue(current, self.scan_poses(current, preserve_rotation=True), "verify_source")
+                if self.batch_mode():
+                    self.carry_to_drop(current, "batch mode; pickup check deferred until batch rescan")
+                else:
+                    self.enqueue(current, self.scan_poses(current, preserve_rotation=True), "verify_source")
             elif self.state == "verify_source":
                 # Source visibility can show a failed pick; disappearance alone is not proof.
                 targets = self.detect(obs)
@@ -337,21 +422,16 @@ class Policy:
                     level = [*current[:2], above[2], *current[3:6], 1.0]
                     self.enqueue(current, [level, above, pick, opened, up], "rescan")
                 else:
-                    xy = t.get("drop_xy", S.DROP_XY[t["drop"]])
-                    above = base_to_tcp(*xy, S.SURFACE_Z + S.TRAVEL_HEIGHT, current[5], 1)
-                    drop = base_to_tcp(*xy, S.SURFACE_Z + S.DROP_HEIGHT, current[5], 1)
-                    opened = [*drop[:6], 0.0]
-                    retreat = [*above[:6], 0.0]
-                    level = [*current[:2], above[2], *current[3:6], 1.0]
-                    self.enqueue(current, [level, above, drop, opened, retreat], "released")
-                    self.log("carry", pickup_verified=False, reason="source no longer detected")
+                    self.carry_to_drop(current, "source no longer detected")
             elif self.state == "released":
                 name = self.selected["drop"]
                 self.drop_counts[name] = self.drop_counts.get(name, 0) + 1
+                self.drop_reservations.setdefault(name, []).append(self.selected["drop_xy"])
                 self.log("release_commanded", label=self.selected["label"], release_verified=False)
                 if S.PAUSE_AFTER_LARGE_OBJECT and self.selected["kind"] in ("cap", "vial"):
                     return self.halt(obs, "Cap/vial attempt finished; inspect for hooked object before next rollout")
-                self.enqueue(current, self.scan_poses(current), "detect")
+                self.enqueue(current, self.scan_poses(current),
+                             "batch_next" if self.batch_mode() else "detect")
             elif self.state == "rescan":
                 self.enqueue(current, self.scan_poses(current), "detect")
             elif self.state == "idle":

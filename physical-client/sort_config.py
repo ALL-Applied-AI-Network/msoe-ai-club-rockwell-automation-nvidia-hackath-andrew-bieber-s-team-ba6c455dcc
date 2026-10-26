@@ -42,8 +42,8 @@ ATTEMPT_RADIUS = 0.020
 MAX_PICKS = 20
 
 # Real robot: explicitly enable only after checking an overlay and measured poses.
-PHYSICAL_EXECUTE = True
-PHYSICAL_POSES_CONFIRMED = True
+PHYSICAL_EXECUTE = False
+PHYSICAL_POSES_CONFIRMED = False
 # Both must be set intentionally; keeping them separate makes preview runs simple.
 SURFACE_Z = -0.0051
 UF0_Z_MM = -330.0
@@ -67,4 +67,11 @@ PHYSICAL_INSPECT_DROP_AREAS = True
 PHYSICAL_WATCH = False
 PHYSICAL_IDLE_SECONDS = 60.0
 
+# Physical lab operator confirmed that these presented cube/screw sizes fit.
+# Ignore their camera-estimated width upper bound only; all other guards remain.
 PHYSICAL_VERIFIED_FIT_KINDS = ("screw", "cube")
+
+# Scan once, attempt each unchanged cached target once, then rescan for leftovers.
+# 'per_pick' restores the original source scan before every drop.
+PHYSICAL_SCAN_MODE = "batch"
+PHYSICAL_BATCH_MAX_IDLE_PASSES = 2  # stop if every cached target keeps changing

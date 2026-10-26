@@ -1,5 +1,10 @@
 # Physical test handoff — October 22, 2026
 
+> **Archived morning record.** The status and instructions below describe the
+> October 22 morning preparation, before the physical test and later updates.
+> Use [BATCH_HANDOFF.md](BATCH_HANDOFF.md) and [README.md](README.md) for the
+> current version, configuration and deployment sequence.
+
 The package is prepared for an operator-reviewed first physical test. The prior
 upload/extraction succeeded, but ROSIE setup stopped at Snap uv's permission
 error. This updated archive fixes setup's uv selection. Installation on ROSIE,

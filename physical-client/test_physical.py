@@ -25,6 +25,12 @@ def target(kind="screw", label="screw", width=6.0):
 
 
 class PhysicalTests(unittest.TestCase):
+    def setUp(self):
+        # These regression scenarios exercise the original per-pick workflow.
+        mode = patch.object(S, "PHYSICAL_SCAN_MODE", "per_pick")
+        mode.start()
+        self.addCleanup(mode.stop)
+
     def test_official_submit_serializes_generated_request_without_network(self):
         import run as runner
         with tempfile.TemporaryDirectory() as tmp:
@@ -210,7 +216,8 @@ class PhysicalTests(unittest.TestCase):
         wide=target("cube","cube_red",16)
         cap=target("cap","cap",31.75)
         missing=target();missing.pop('short_mm')
-        eligible,disabled=Policy.motion_targets([small,wide,cap,missing])
+        with patch.object(S,"PHYSICAL_VERIFIED_FIT_KINDS",()):
+            eligible,disabled=Policy.motion_targets([small,wide,cap,missing])
         self.assertEqual(eligible,[small])
         self.assertEqual(len(disabled),3)
 

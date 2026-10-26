@@ -36,13 +36,19 @@ def main():
     Policy.validate(base_to_tcp(*S.SCAN_XY,S.SURFACE_Z+S.SCAN_HEIGHT))
     if not 0.001 <= S.DROP_HEIGHT < S.TRAVEL_HEIGHT:
         raise SystemExit("Release height must be above the table and below travel height")
+    Policy.batch_mode()  # validate configured scan mode without connecting
+    if S.PHYSICAL_BATCH_MAX_IDLE_PASSES < 1:
+        raise SystemExit("PHYSICAL_BATCH_MAX_IDLE_PASSES must be positive")
     print("PASS: projection arithmetic, resize/frame conventions, UF0 conversion and configured pose bounds")
     print("These mathematical checks do not establish real-world calibration, grasp or collision accuracy.")
     print(f"Camera orientation: raw physical table frame; no image flip. Native size: {cam['size']}")
     print(f"Release: {S.DROP_HEIGHT*1000:.1f} mm fingertip above bare table (proposed; verify in cell)")
     print(f"Motion enabled: {S.PHYSICAL_EXECUTE}; poses confirmed: {S.PHYSICAL_POSES_CONFIRMED}")
-    print(f"Allowed kinds: {S.PHYSICAL_ALLOWED_KINDS}; maximum grasp width: {S.PHYSICAL_MAX_GRASP_WIDTH_MM} mm")
-    print(f"Fresh scan per pick; destination correction: {S.PHYSICAL_INSPECT_DROP_AREAS}; watch: {S.PHYSICAL_WATCH}")
+    print(f"Allowed kinds: {S.PHYSICAL_ALLOWED_KINDS}; width upper-bound bypass for verified-fit kinds: {S.PHYSICAL_VERIFIED_FIT_KINDS}")
+    print(f"Width upper bound for other kinds: {S.PHYSICAL_MAX_GRASP_WIDTH_MM} mm; finite positive widths still required")
+    print(f"Scan mode: {S.PHYSICAL_SCAN_MODE}; destination correction: {S.PHYSICAL_INSPECT_DROP_AREAS}; watch: {S.PHYSICAL_WATCH}")
+    if Policy.batch_mode():
+        print("One SAM pass per batch; fresh RGB change checks between picks; final rescan even at attempt limit")
     print("SHA256",hashlib.sha256((S.ROOT/'calibration/cameras.json').read_bytes()).hexdigest(),"calibration/cameras.json")
     if args.sam:
         python=Path(S.SAM_PYTHON).expanduser()

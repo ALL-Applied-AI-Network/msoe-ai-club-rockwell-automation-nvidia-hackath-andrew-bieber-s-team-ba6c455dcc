@@ -1,4 +1,45 @@
-# Review and validation — October 22, 2026
+# Batch update validation
+
+Baseline: the physical MVP preserved on `feature/mvp2` as `91ecca7`, supplied
+in `physical-mvp-lab-baseline.tar.gz`. This update changes the scheduling of
+physical vision and motion; it does not change SAM2 or its inference settings.
+The baseline commit remains the reference for the prior lab-tested behavior.
+
+- **58 host tests passed.** The original 44 checks retain the per-pick regression
+  scenarios. The width-rejection test explicitly disables the known-fit override;
+  new tests cover its enabled behavior. Twelve batch tests and two watch tests
+  exercise the new workflow. Evidence: `audit/batch-tests.log`.
+- Integrated synthetic-image checks use real projection, mask description,
+  candidate generation and RGB comparison with a FakeSam transport. Three picks
+  use exactly two segmentation calls; a correctly sorted cube still occupies
+  its destination while being omitted from pickup targets. No trained model
+  or SAM weights are involved in these tests.
+- Tests cover delayed retry after other objects, location and total attempt
+  limits, the final scan at the total cap, changed-target deferral, bounded
+  no-progress passes, cleared trial state, watch idle/rearm behavior, occupied
+  destinations and distinct commanded landing positions. Emitted actions pass
+  the organizer validator; cross-table transfers stay at travel clearance.
+- Local preflight passed: batch mode, raw camera orientation, unchanged
+  calibration hash and configured motion bounds. Both motion gates are False.
+  Evidence: `audit/batch-preflight.log`.
+- Organizer local mock passed with zero rejected actions. It bypasses SAM and
+  the physical motion state machine. Evidence: `audit/batch-mock.log`.
+- Installer is checked against a fresh copy of the uploaded baseline, including
+  repeated installation and refusal of unexpected local edits. Python and shell
+  syntax and package checksums are checked before packaging.
+
+**Not established:** real batch-mode grasp/sort success, a success rate,
+individual scan latency improvements, eliminated T4 memory warnings, complete
+displacement detection, collision-free swept motion, or hardware release
+verification. RGB changes can result from shadows or lighting. Source absence
+and release commands remain explicitly unverified. Next evidence is a supervised
+physical batch run on the same layout as the retained per-pick baseline.
+
+## Historical morning review — October 22, 2026
+
+The following is the retained audit of the earlier archive, not a description
+of current flags, width handling or testing progress. Use `BATCH_HANDOFF.md` and
+the batch section above for this update.
 
 This morning review started from the current saved prepared archive (version 1),
 not surviving scratch state. The unmodified source archive remains untouched.

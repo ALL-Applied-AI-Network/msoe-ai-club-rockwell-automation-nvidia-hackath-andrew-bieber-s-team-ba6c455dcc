@@ -4,17 +4,34 @@ Prepared from the supplied ROSIE source snapshot after commit `a2feb54` and the
 organizer client at `ff7534e`. This folder runs independently of Isaac Sim.
 `run.py`, `cell_client.py` and `mock_cell.py` are unchanged organizer files.
 
+Use [BATCH_HANDOFF.md](BATCH_HANDOFF.md) for the current update and deployment
+sequence. The physical MVP is preserved on `feature/mvp2` at `91ecca7`.
+This update adds batch execution; that behavior still needs supervised physical
+validation. The installation and request instructions below also cover a new setup.
+
 ## What is ready
 
 The policy reads the physical table camera, uses SAM2 masks plus the existing
 shape/color rules, projects to robot-base coordinates, and returns UF0 TCP
-actions. Its first-test motion scope is M6x30 screws and 10 mm colored cubes.
-It lifts and moves back to the scan point with the grasp closed before checking
-whether the source is still present, then rescans after each attempt. It can correct recognized objects in the wrong
-destination. A location has at most two attempts. Optional watch mode waits
-without blocking `act()` and clears old retry history only after two absent
-full scans. Batch caching and miscellaneous-object depth checks are not enabled
-in this physical client. It uses fresh scans for physical picking.
+actions. The enabled scope is screws and red, blue and yellow cubes in the
+presented sizes confirmed to fit the fingers at the physical test.
+
+`PHYSICAL_SCAN_MODE="batch"` is the default: one full SAM scan saves the target
+poses, each cached target gets one attempt during that pass, and a full scan
+at the end finds leftovers for a later retry. The final scan also runs when the
+total attempt limit has been reached. A location has at most two attempts.
+After each release the arm returns to the same clear scan pose. A cheap RGB
+comparison checks the next target against that pass's reference image, without
+running SAM. Changed targets wait for the next full scan while unchanged
+neighbors can proceed. Repeated passes with no attempted targets stop for review.
+
+Set `PHYSICAL_SCAN_MODE="per_pick"` to restore the earlier scan after lifting,
+before dropping, and a new scan before each pickup. Both modes can correct
+recognized objects in the wrong destination. Optional watch mode waits without
+blocking `act()` and clears old retry history only after two absent full scans.
+Miscellaneous-object depth checks are not enabled in this physical client.
+SAM settings are unchanged; fewer SAM calls do not establish a faster individual
+scan or remove the T4 memory allocation warnings.
 
 All five supplied camera calibrations numerically match the organizer copy.
 The table calibration already puts the robot base above the pickup workspace
@@ -87,8 +104,14 @@ uv run policy.py --image table.png
 The second command uses SAM without any robot connection. Look under the
 printed `runs/physical_*/cycle_000/` folder for `targets.png`, `targets.json`,
 `camera_mapping.png` and the saved frame. Targets JSON separates detections
-from objects currently allowed to move. A 16 mm cube is too wide for the
-configured 11 mm grasp clearance and is excluded from motion.
+from objects currently allowed to move. Camera-estimated width was unreliable
+in the physical test. `PHYSICAL_VERIFIED_FIT_KINDS=("screw", "cube")` bypasses
+the configured 11 mm width upper bound for the presented sizes confirmed to fit.
+It does not remove the finite positive width requirement, classification,
+allowed-kind restrictions or pose bounds. The estimated dimensions remain in
+the saved detections. Set the verified-fit tuple to `()` to restore the width
+upper bound for every kind. This override does not establish that other cube or
+screw sizes fit the fingers.
 
 For measured accuracy, write a JSON list such as:
 
@@ -145,11 +168,11 @@ clearances, fingertip height, jaw angle and the proposed drop layout with the
 operator. To test another preview after changes, restart the client as directed
 by the operator. Only then change both gates in `sort_config.py` to true.
 
-The initial physical scope excludes caps/vials and miscellaneous objects from
-motion. Preview still reports recognized caps/vials. Broaden
-`PHYSICAL_ALLOWED_KINDS` and `PHYSICAL_MAX_GRASP_WIDTH_MM` only after the actual
-fingers and handling are checked; cap/vial attempts retain the existing operator
-pause. Misc would additionally need real, validated depth evidence.
+The physical scope excludes caps/vials and miscellaneous objects from motion.
+Preview still reports recognized caps/vials. Batch mode supports only cubes and
+screws. Other kinds require `per_pick` mode and checked fingers and handling
+before broadening `PHYSICAL_ALLOWED_KINDS`; cap/vial attempts retain the existing
+operator pause. Misc would additionally need real, validated depth evidence.
 
 Record every attempt and operator intervention. Source disappearance does not
 prove a grasp, and a release command does not prove release: the JSONL event
@@ -159,10 +182,8 @@ they do not perform collision planning or establish gripper contact.
 The local guards include the organizer's UF0 TCP action box, radial/height
 limits and every interpolated row, and reject a complete plan before queuing if
 any row is invalid. This guards command bounds, not the swept volume of the arm.
-Shape clearance is deliberately conservative: the whole detected screw mask's
-short width must fit within 11 mm, including its head. A wider head may disable
-an otherwise graspable shaft; inspect the preview reason instead of loosening
-the jaw limit blindly. The jaw yaw offset also needs a real alignment check.
+The known-fit width override above does not change jaw alignment or estimated
+pickup positions. The jaw yaw offset still needs a real alignment check.
 
 The default run ends its picking loop when no eligible targets remain, and holds
 for operator scoring. Optional `PHYSICAL_WATCH=True` rescans after 60 seconds;
@@ -171,4 +192,5 @@ first-test object count until the tabletop destinations and potential piles
 have been checked. The supplied mixed layout has one object per destination.
 
 See `ORGANIZER_README.md` and `calibration/FRAMES.md` for the original interface.
-See `MORNING_HANDOFF.md` for the short upload, recovery and booking sequence.
+See [BATCH_HANDOFF.md](BATCH_HANDOFF.md) for the current handoff.
+`MORNING_HANDOFF.md` preserves the October 22 morning instructions as history.

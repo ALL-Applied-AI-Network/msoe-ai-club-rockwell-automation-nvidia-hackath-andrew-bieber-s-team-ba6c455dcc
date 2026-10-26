@@ -43,6 +43,11 @@ def projector(size):
 
 
 class SortingTests(unittest.TestCase):
+    def setUp(self):
+        mode = patch.object(S, "PHYSICAL_SCAN_MODE", "per_pick")
+        mode.start()
+        self.addCleanup(mode.stop)
+
     def test_classes_have_separate_drop_areas_within_radius(self):
         drops = {**S.DROP_XY, "misc": S.MISC_DROP_XY}
         self.assertEqual(set(S.BIN_FOR), {"cube_red", "cube_blue", "cube_yellow",
