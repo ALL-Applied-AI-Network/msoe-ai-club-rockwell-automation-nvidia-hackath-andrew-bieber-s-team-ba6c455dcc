@@ -623,6 +623,22 @@ def build(stage, with_objects=True):
     )
     bind_physics_material(matp)
     small_contact_offsets(matp)
+    # DUAL_SOLID_WORK_SURFACE_V1
+    # One continuous support volume ends at the SAME calibrated surface height.
+    # Avoid a 2 mm thin mat collider over a second table collider.
+    UsdPhysics.CollisionAPI(matp).CreateCollisionEnabledAttr().Set(False)
+    table_prim = stage.GetPrimAtPath("/World/Table")
+    UsdPhysics.CollisionAPI(table_prim).CreateCollisionEnabledAttr().Set(False)
+    support = box(
+        stage, "/World/SolidWorkSurface",
+        (tw, td, tt + C.MAT_T),
+        (C.TABLE_CENTER[0], C.TABLE_CENTER[1],
+         C.TABLE_TOP_Z + C.SURFACE_DZ - (tt + C.MAT_T) / 2.0),
+        (0.90, 0.90, 0.895), mat="table_white",
+    )
+    UsdGeom.Imageable(support).CreateVisibilityAttr().Set("invisible")
+    bind_physics_material(support)
+    small_contact_offsets(support)
 
     robot_usd = os.environ.get("FANUC_ROBOT_USD")
     if not robot_usd:
@@ -1516,6 +1532,21 @@ def attach_gripper(stage, jaw=None, articulated=True):
             contact.CreateContactOffsetAttr().Set(0.0002)
             contact.CreateRestOffsetAttr().Set(0.0)
             bind_physics_material(collider, material)
+        if C.FINGER_SET == "dual":
+            # Additional cap rail and root bridge, attached to the same rigid jaw.
+            # Local Z is perpendicular to both tool length X and jaw travel Y.
+            from dual_zone import extra_boxes
+            for name, size, centre, soft in extra_boxes(sign):
+                local = (finger_x - carriage_x + centre[0],
+                         centre[1] - sign * C.FINGER_WIDTH / 2, centre[2])
+                prim = box(stage, jaw_path + "/Dual" + name, size, local,
+                           METAL, mat="soft_tip" if soft else "alu_machined")
+                UsdPhysics.CollisionAPI.Apply(prim)
+                from pxr import PhysxSchema
+                contact = PhysxSchema.PhysxCollisionAPI.Apply(prim)
+                contact.CreateContactOffsetAttr().Set(0.0002)
+                contact.CreateRestOffsetAttr().Set(0.0)
+                bind_physics_material(prim, SOFT_TIP_MAT_PATH if soft else PHYS_MAT_PATH)
         for number, u in enumerate(C.FINGER_MOUNT_HOLES):
             for face in (-1, 1):
                 cyl(
@@ -1620,7 +1651,7 @@ def attach_gripper(stage, jaw=None, articulated=True):
         if articulated:
             rb = UsdPhysics.RigidBodyAPI.Apply(g.GetPrim())
             rb.CreateRigidBodyEnabledAttr().Set(True)
-            UsdPhysics.MassAPI.Apply(g.GetPrim()).CreateMassAttr(C.JAW_MASS)
+            UsdPhysics.MassAPI.Apply(g.GetPrim()).CreateMassAttr((0.080 if C.FINGER_SET == "dual" else C.JAW_MASS))
 
             j = UsdPhysics.PrismaticJoint.Define(
                 stage, FLANGE + f"/Gripper/{JAW_JOINTS[tag]}"
