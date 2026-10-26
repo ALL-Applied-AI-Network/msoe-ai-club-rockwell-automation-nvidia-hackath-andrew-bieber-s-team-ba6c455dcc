@@ -250,7 +250,12 @@ FINGER_SET = _os.environ.get("FINGER_SET", "scallop")
 PAD_STEP_X = 0.044  # relief starts here, measured from the carriage end (STEP: 44 mm)
 PAD_T = 0.001  # rubber pad thickness
 PAD_FACE = float(_os.environ.get("PAD_FACE_MM", "4")) / 1000.0
-if FINGER_SET == "padded":
+PAD_LEAD_IN = 0.0  # Square pad ends; no uncalibrated lead-in.
+if FINGER_SET not in ("scallop", "padded", "dual"):
+    raise ValueError("Supported FINGER_SET values: scallop, padded, dual")
+if FINGER_SET == "dual":
+    PAD_FACE = 0.004  # Primary zone: 8--20 mm; actuator unchanged.
+if FINGER_SET in ("padded", "dual"):
     assert PAD_STEP_X < FINGER_LENGTH
     assert PAD_FACE >= 0.0 and PAD_FACE + PAD_T <= FINGER_WIDTH - 0.003, (
         "PAD_FACE too deep: less than 3 mm of support would remain behind the pad"
