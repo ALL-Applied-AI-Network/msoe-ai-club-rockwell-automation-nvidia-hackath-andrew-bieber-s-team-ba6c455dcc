@@ -1,0 +1,130 @@
+test_batch_attempts_all_targets_once_before_retrying (test_sorting.SortingTests.test_batch_attempts_all_targets_once_before_retrying) ... ok
+test_batch_changed_target_defers_without_discarding_neighbours (test_sorting.SortingTests.test_batch_changed_target_defers_without_discarding_neighbours) ... ok
+test_cached_target_is_invalidated_when_image_changes (test_sorting.SortingTests.test_cached_target_is_invalidated_when_image_changes) ... ok
+test_chunk_limits_speed_and_gripper_timing (test_sorting.SortingTests.test_chunk_limits_speed_and_gripper_timing) ... ok
+test_classes_have_separate_drop_areas_within_radius (test_sorting.SortingTests.test_classes_have_separate_drop_areas_within_radius) ... ok
+test_controller_lag_cannot_advance_phase (test_sorting.SortingTests.test_controller_lag_cannot_advance_phase) ... [sort] {"event": "hold_for_operator", "elapsed_s": 0.01, "reason": "TCP did not settle; check controller/gripper before resuming"}
+ok
+test_destination_inspection_does_not_enable_arbitrary_table_pickups (test_sorting.SortingTests.test_destination_inspection_does_not_enable_arbitrary_table_pickups) ... ok
+test_destination_routing_repairs_wrong_zones_and_leaves_correct_ones (test_sorting.SortingTests.test_destination_routing_repairs_wrong_zones_and_leaves_correct_ones) ... ok
+test_full_state_machine_and_large_object_pause (test_sorting.SortingTests.test_full_state_machine_and_large_object_pause) ... [sort] {"event": "attempt", "elapsed_s": 0.004, "label": "screw", "xy": [0.39, 0], "drop": "screws", "pickup_verified": false}
+[sort] {"event": "carry", "elapsed_s": 0.01, "pickup_verified": false, "reason": "source no longer detected"}
+[sort] {"event": "release_commanded", "elapsed_s": 0.012, "label": "screw", "release_verified": false}
+[sort] {"event": "hold_for_operator", "elapsed_s": 0.013, "reason": "No eligible detections; inspect overlay for missed/exhausted objects"}
+[sort] {"event": "attempt", "elapsed_s": 0.004, "label": "cap", "xy": [0.39, 0], "drop": "caps", "pickup_verified": false}
+[sort] {"event": "carry", "elapsed_s": 0.011, "pickup_verified": false, "reason": "source no longer detected"}
+[sort] {"event": "release_commanded", "elapsed_s": 0.013, "label": "cap", "release_verified": false}
+[sort] {"event": "hold_for_operator", "elapsed_s": 0.013, "reason": "Cap/vial attempt finished; inspect for hooked object before next rollout"}
+ok
+test_mask_memory_layouts (test_sorting.SortingTests.test_mask_memory_layouts) ... ok
+test_misc_cannot_relabel_a_known_object_fragment (test_sorting.SortingTests.test_misc_cannot_relabel_a_known_object_fragment) ... ok
+test_misc_needs_small_shape_and_positive_depth (test_sorting.SortingTests.test_misc_needs_small_shape_and_positive_depth) ... ok
+test_missing_pose_confirmation_stops_motion (test_sorting.SortingTests.test_missing_pose_confirmation_stops_motion) ... [sort] {"event": "hold_for_operator", "elapsed_s": 0.0, "reason": "Set measured scan/drop poses and PHYSICAL_POSES_CONFIRMED first"}
+ok
+test_preview_preserves_closed_gripper (test_sorting.SortingTests.test_preview_preserves_closed_gripper) ... [sort] {"event": "preview_only", "elapsed_s": 0.0, "message": "PHYSICAL_EXECUTE=False; holding current pose"}
+ok
+test_projection_resize_and_uf0 (test_sorting.SortingTests.test_projection_resize_and_uf0) ... ok
+test_scan_queue_invalidates_failures_neighbours_and_large_objects (test_sorting.SortingTests.test_scan_queue_invalidates_failures_neighbours_and_large_objects) ... ok
+test_size_order_drop_exclusion_and_attempt_ids (test_sorting.SortingTests.test_size_order_drop_exclusion_and_attempt_ids) ... ok
+test_synthetic_masks_all_classes_and_rotated_cube (test_sorting.SortingTests.test_synthetic_masks_all_classes_and_rotated_cube) ... ok
+test_watch_rearms_location_only_after_two_absent_full_scans (test_sorting.SortingTests.test_watch_rearms_location_only_after_two_absent_full_scans) ... ok
+test_controller_box_is_enforced_before_queuing_or_selecting (test_physical.PhysicalTests.test_controller_box_is_enforced_before_queuing_or_selecting) ... ok
+test_disabled_target_holds_without_attempting_a_grasp (test_physical.PhysicalTests.test_disabled_target_holds_without_attempting_a_grasp) ... [sort] {"event": "disabled_targets", "elapsed_s": 0.0, "targets": [{"label": "cap", "world_xy": [0.39, 0.0], "reason": "kind not enabled for this physical test"}]}
+[sort] {"event": "hold_for_operator", "elapsed_s": 0.0, "reason": "No eligible detections; inspect overlay for missed/exhausted objects"}
+ok
+test_failed_source_is_rescanned_and_stops_after_two_attempts (test_physical.PhysicalTests.test_failed_source_is_rescanned_and_stops_after_two_attempts) ... ok
+test_invalid_later_pose_does_not_publish_partial_plan (test_physical.PhysicalTests.test_invalid_later_pose_does_not_publish_partial_plan) ... ok
+test_measured_landmarks_expose_an_accidental_180_degree_flip (test_physical.PhysicalTests.test_measured_landmarks_expose_an_accidental_180_degree_flip) ... ok
+test_missed_pick_then_successful_retry_emits_controller_valid_rows (test_physical.PhysicalTests.test_missed_pick_then_successful_retry_emits_controller_valid_rows) ... ok
+test_nonmatching_image_aspect_is_rejected (test_physical.PhysicalTests.test_nonmatching_image_aspect_is_rejected) ... ok
+test_official_submit_serializes_generated_request_without_network (test_physical.PhysicalTests.test_official_submit_serializes_generated_request_without_network) ... ok
+test_physical_detection_can_correct_red_cube_in_screw_destination (test_physical.PhysicalTests.test_physical_detection_can_correct_red_cube_in_screw_destination) ... [sort] {"event": "detections", "elapsed_s": 0.077, "count": 1, "overlay": "/tmp/tmp0huf1mng/runs/physical_20261027_081045_432360/cycle_000/targets.png", "order": ["cube_red"]}
+ok
+test_pose_bounds_and_wrapped_interpolation (test_physical.PhysicalTests.test_pose_bounds_and_wrapped_interpolation) ... ok
+test_published_camera_orientation_places_base_above_pickup (test_physical.PhysicalTests.test_published_camera_orientation_places_base_above_pickup) ... ok
+test_raw_real_view_detection_preserves_xy_at_both_client_resolutions (test_physical.PhysicalTests.test_raw_real_view_detection_preserves_xy_at_both_client_resolutions) ... [sort] {"event": "detections", "elapsed_s": 0.025, "count": 1, "overlay": "/tmp/tmpet2gqq7e/runs/physical_20261027_081045_513689/cycle_000/targets.png", "order": ["screw"]}
+[sort] {"event": "detections", "elapsed_s": 0.069, "count": 1, "overlay": "/tmp/tmpy7n6ob8o/runs/physical_20261027_081045_547634/cycle_000/targets.png", "order": ["screw"]}
+ok
+test_settle_timeout_halts_without_executing_queued_descent (test_physical.PhysicalTests.test_settle_timeout_halts_without_executing_queued_descent) ... [sort] {"event": "hold_for_operator", "elapsed_s": 0.0, "reason": "TCP did not settle; check controller/gripper before resuming"}
+ok
+test_settling_requires_consecutive_matches_after_lag (test_physical.PhysicalTests.test_settling_requires_consecutive_matches_after_lag) ... ok
+test_source_verification_moves_off_pickup_before_detection (test_physical.PhysicalTests.test_source_verification_moves_off_pickup_before_detection) ... [sort] {"event": "source_still_detected", "elapsed_s": 0.002, "label": "screw"}
+ok
+test_submission_has_real_identity_and_matching_placement_count (test_physical.PhysicalTests.test_submission_has_real_identity_and_matching_placement_count) ... ok
+test_success_path_uses_low_table_release_and_preserves_unverified_logs (test_physical.PhysicalTests.test_success_path_uses_low_table_release_and_preserves_unverified_logs) ... ok
+test_ungraspable_width_and_disabled_types_are_excluded_from_motion (test_physical.PhysicalTests.test_ungraspable_width_and_disabled_types_are_excluded_from_motion) ... ok
+test_watch_holds_until_deadline_without_repeating_sam (test_physical.PhysicalTests.test_watch_holds_until_deadline_without_repeating_sam) ... [sort] {"event": "idle", "elapsed_s": 0, "seconds": 60.0, "exhausted_visible": 0}
+ok
+test_gpu_preflight_rejects_cpu_only_sam_environment (test_workflow.WorkflowTests.test_gpu_preflight_rejects_cpu_only_sam_environment) ... ok
+test_private_uv_bypasses_broken_path_uv (test_workflow.WorkflowTests.test_private_uv_bypasses_broken_path_uv) ... ok
+test_request_generation_does_not_submit_or_connect (test_workflow.WorkflowTests.test_request_generation_does_not_submit_or_connect) ... ok
+test_sam_preflight_reports_missing_external_interpreter (test_workflow.WorkflowTests.test_sam_preflight_reports_missing_external_interpreter) ... ok
+test_setup_stops_at_failed_sync_and_can_restart (test_workflow.WorkflowTests.test_setup_stops_at_failed_sync_and_can_restart) ... ok
+test_snap_uv_is_replaced_and_restart_preserves_request (test_workflow.WorkflowTests.test_snap_uv_is_replaced_and_restart_preserves_request) ... ok
+test_changed_cached_target_is_deferred_without_consuming_attempt (test_batch.BatchTests.test_changed_cached_target_is_deferred_without_consuming_attempt) ... ok
+test_known_fit_width_override_preserves_other_eligibility_checks (test_batch.BatchTests.test_known_fit_width_override_preserves_other_eligibility_checks) ... ok
+test_missed_first_object_waits_until_other_targets_are_attempted (test_batch.BatchTests.test_missed_first_object_waits_until_other_targets_are_attempted) ... ok
+test_occupied_destination_centre_is_not_selected_for_release (test_batch.BatchTests.test_occupied_destination_centre_is_not_selected_for_release) ... ok
+test_persistent_object_stops_after_two_attempts_and_final_scan (test_batch.BatchTests.test_persistent_object_stops_after_two_attempts_and_final_scan) ... ok
+test_real_detection_retains_correct_destination_object_for_occupancy (test_batch.BatchTests.test_real_detection_retains_correct_destination_object_for_occupancy) ... ok
+test_real_pixel_checks_keep_unchanged_objects_after_previous_pick (test_batch.BatchTests.test_real_pixel_checks_keep_unchanged_objects_after_previous_pick) ... ok
+test_repeated_releases_use_distinct_landing_spots (test_batch.BatchTests.test_repeated_releases_use_distinct_landing_spots) ... ok
+test_repeatedly_changed_targets_have_bounded_scan_passes (test_batch.BatchTests.test_repeatedly_changed_targets_have_bounded_scan_passes) ... ok
+test_reset_discards_previous_pass_state (test_batch.BatchTests.test_reset_discards_previous_pass_state) ... ok
+test_three_objects_use_initial_and_final_scan_only (test_batch.BatchTests.test_three_objects_use_initial_and_final_scan_only) ... ok
+test_total_pick_limit_still_performs_final_batch_scan (test_batch.BatchTests.test_total_pick_limit_still_performs_final_batch_scan) ... ok
+test_new_target_after_deferred_batch_and_empty_scan_is_attempted (test_batch_watch.BatchWatchTests.test_new_target_after_deferred_batch_and_empty_scan_is_attempted) ... ok
+test_repeated_empty_watch_scans_do_not_count_as_stale_batches (test_batch_watch.BatchWatchTests.test_repeated_empty_watch_scans_do_not_count_as_stale_batches) ... ok
+test_cap_orientation_and_flange_height_are_required (test_gripper_profile.GripperProfileTests.test_cap_orientation_and_flange_height_are_required) ... ok
+test_cap_plug_geometry_matches_taper_not_flange (test_gripper_profile.GripperProfileTests.test_cap_plug_geometry_matches_taper_not_flange) ... ok
+test_contact_offset_rotates_and_roundtrips_through_uf0 (test_gripper_profile.GripperProfileTests.test_contact_offset_rotates_and_roundtrips_through_uf0) ... ok
+test_known_fit_cube_uses_declared_inventory_not_distorted_width (test_gripper_profile.GripperProfileTests.test_known_fit_cube_uses_declared_inventory_not_distorted_width) ... ok
+test_legacy_offsets_and_width_override_remain_original (test_gripper_profile.GripperProfileTests.test_legacy_offsets_and_width_override_remain_original) ... ok
+test_nonfinite_camera_width_never_bypasses (test_gripper_profile.GripperProfileTests.test_nonfinite_camera_width_never_bypasses) ... ok
+test_obstacles_do_not_require_grasp_eligibility (test_gripper_profile.GripperProfileTests.test_obstacles_do_not_require_grasp_eligibility) ... ok
+test_screw_shaft_rejected_even_if_old_profile_says_fits (test_gripper_profile.GripperProfileTests.test_screw_shaft_rejected_even_if_old_profile_says_fits) ... ok
+test_two_rail_envelopes_rotate_with_actual_tcp_pose (test_gripper_profile.GripperProfileTests.test_two_rail_envelopes_rotate_with_actual_tcp_pose) ... ok
+test_vial_has_own_height_and_nominal_geometry (test_gripper_profile.GripperProfileTests.test_vial_has_own_height_and_nominal_geometry) ... ok
+test_all_supported_cube_sizes_fit_without_using_camera_override (test_gripper_profile.RevisedGripperProfileTests.test_all_supported_cube_sizes_fit_without_using_camera_override) ... ok
+test_end_grasp_follows_measured_offset_sign (test_gripper_profile.RevisedGripperProfileTests.test_end_grasp_follows_measured_offset_sign) ... ok
+test_measured_offset_and_yaw_calibration_must_be_consistent (test_gripper_profile.RevisedGripperProfileTests.test_measured_offset_and_yaw_calibration_must_be_consistent) ... ok
+test_measured_rail_separation_and_calibration_finiteness_checked (test_gripper_profile.RevisedGripperProfileTests.test_measured_rail_separation_and_calibration_finiteness_checked) ... ok
+test_v2_footprints_match_final_outer_stock_and_real_vial (test_gripper_profile.RevisedGripperProfileTests.test_v2_footprints_match_final_outer_stock_and_real_vial) ... ok
+test_v2_invalid_nominal_dimensions_and_nonfinite_width_rejected (test_gripper_profile.RevisedGripperProfileTests.test_v2_invalid_nominal_dimensions_and_nonfinite_width_rejected) ... ok
+test_v2_inventory_fits_declared_gaps_and_uses_correct_rails (test_gripper_profile.RevisedGripperProfileTests.test_v2_inventory_fits_declared_gaps_and_uses_correct_rails) ... ok
+test_vial_end_grasp_maps_object_centre_and_release_correctly (test_gripper_profile.RevisedGripperProfileTests.test_vial_end_grasp_maps_object_centre_and_release_correctly) ... ok
+test_high_horizontal_travel_clears_low_objects (test_dual_clearance.DualClearanceTests.test_high_horizontal_travel_clears_low_objects) ... ok
+test_inactive_rail_hits_neighbour_despite_clear_active_grasp (test_dual_clearance.DualClearanceTests.test_inactive_rail_hits_neighbour_despite_clear_active_grasp) ... ok
+test_invalid_obstacle_fails_before_high_path_is_accepted (test_dual_clearance.DualClearanceTests.test_invalid_obstacle_fails_before_high_path_is_accepted) ... ok
+test_long_carried_vial_hits_object_beyond_both_rails (test_dual_clearance.DualClearanceTests.test_long_carried_vial_hits_object_beyond_both_rails) ... ok
+test_low_tilt_and_table_penetration_are_rejected (test_dual_clearance.DualClearanceTests.test_low_tilt_and_table_penetration_are_rejected) ... ok
+test_opposite_yaw_places_inactive_rail_on_other_side (test_dual_clearance.DualClearanceTests.test_opposite_yaw_places_inactive_rail_on_other_side) ... ok
+test_payload_only_exists_on_closed_gripper_rows (test_dual_clearance.DualClearanceTests.test_payload_only_exists_on_closed_gripper_rows) ... ok
+test_sat_detects_edge_clearance_and_separation (test_dual_clearance.DualClearanceTests.test_sat_detects_edge_clearance_and_separation) ... ok
+test_selected_source_exclusion_does_not_remove_other_kind (test_dual_clearance.DualClearanceTests.test_selected_source_exclusion_does_not_remove_other_kind) ... ok
+test_static_rectangular_stop_blocks_descent (test_dual_clearance.DualClearanceTests.test_static_rectangular_stop_blocks_descent) ... ok
+test_tall_obstacle_exceeds_supported_bridge_model (test_dual_clearance.DualClearanceTests.test_tall_obstacle_exceeds_supported_bridge_model) ... ok
+test_ungraspable_cap_is_still_an_obstacle (test_dual_clearance.DualClearanceTests.test_ungraspable_cap_is_still_an_obstacle) ... ok
+test_v2_central_wide_grasp_rejects_inactive_primary_overlap (test_dual_clearance.DualClearanceTests.test_v2_central_wide_grasp_rejects_inactive_primary_overlap) ... ok
+test_v2_near_end_grasp_keeps_inactive_primary_past_vial_end (test_dual_clearance.DualClearanceTests.test_v2_near_end_grasp_keeps_inactive_primary_past_vial_end) ... ok
+test_v2_real_vial_far_end_is_screened_at_object_centre (test_dual_clearance.DualClearanceTests.test_v2_real_vial_far_end_is_screened_at_object_centre) ... ok
+test_v2_rotated_vial_far_end_rotates_with_tcp (test_dual_clearance.DualClearanceTests.test_v2_rotated_vial_far_end_rotates_with_tcp) ... ok
+test_invalid_delivery_never_queues_pickup_or_consumes_attempt (test_dual_policy.DualPolicyTests.test_invalid_delivery_never_queues_pickup_or_consumes_attempt) ... ok
+test_obstructed_target_defers_without_attempt_then_clear_target_runs (test_dual_policy.DualPolicyTests.test_obstructed_target_defers_without_attempt_then_clear_target_runs) ... ok
+test_original_dual_rejects_shaft_revised_dual_accepts_it (test_dual_policy.DualPolicyTests.test_original_dual_rejects_shaft_revised_dual_accepts_it) ... ok
+test_source_recovery_screens_possible_payload_until_open_command (test_dual_policy.DualPolicyTests.test_source_recovery_screens_possible_payload_until_open_command) ... ok
+test_three_kinds_sort_in_one_batch_with_one_final_scan (test_dual_policy.DualPolicyTests.test_three_kinds_sort_in_one_batch_with_one_final_scan) ... ok
+test_unconfirmed_mount_holds_without_scanning_or_queuing (test_dual_policy.DualPolicyTests.test_unconfirmed_mount_holds_without_scanning_or_queuing) ... ok
+test_vial_contact_offset_preserves_source_and_release_object_centres (test_dual_policy.DualPolicyTests.test_vial_contact_offset_preserves_source_and_release_object_centres) ... ok
+test_vial_eligibility_considers_valid_opposite_approach (test_dual_policy.DualPolicyTests.test_vial_eligibility_considers_valid_opposite_approach) ... ok
+test_change_far_outside_planned_regions_does_not_defer_target (test_dual_pixels.DualPixelTests.test_change_far_outside_planned_regions_does_not_defer_target) ... ok
+test_changed_frame_shape_is_rejected (test_dual_pixels.DualPixelTests.test_changed_frame_shape_is_rejected) ... ok
+test_inactive_source_rail_change_outside_object_bbox_forces_rescan (test_dual_pixels.DualPixelTests.test_inactive_source_rail_change_outside_object_bbox_forces_rescan) ... ok
+test_landing_region_change_forces_rescan (test_dual_pixels.DualPixelTests.test_landing_region_change_forces_rescan) ... ok
+test_real_vial_mask_uses_declared_height_and_one_sam_pass (test_dual_pixels.DualPixelTests.test_real_vial_mask_uses_declared_height_and_one_sam_pass) ... ok
+test_same_rgb_preserves_in_frame_pick_and_drop (test_dual_pixels.DualPixelTests.test_same_rgb_preserves_in_frame_pick_and_drop) ... ok
+
+----------------------------------------------------------------------
+Ran 106 tests in 2.879s
+
+OK

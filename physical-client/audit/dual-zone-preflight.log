@@ -1,0 +1,43 @@
+PASS: projection arithmetic, resize/frame conventions, UF0 conversion and configured pose bounds
+These mathematical checks do not establish real-world calibration, grasp or collision accuracy.
+Camera orientation: raw physical table frame; no image flip. Native size: (1920, 1080)
+Gripper profile: legacy
+Release: 10.0 mm fingertip above bare table (proposed; verify in cell)
+Motion enabled: False; poses confirmed: False
+Allowed kinds: ('screw', 'cube'); width upper-bound bypass for verified-fit kinds: ('screw', 'cube')
+Width upper bound for other kinds: 11.0 mm; finite positive widths still required
+Scan mode: batch; destination correction: True; watch: False
+One SAM pass per batch; fresh RGB change checks between picks; final rescan even at attempt limit
+SHA256 7a8df1da65f238a1445319d720c1a2ce143e344754d44e42ff2f82d6d68a29f3 calibration/cameras.json
+PASS: projection arithmetic, resize/frame conventions, UF0 conversion and configured pose bounds
+These mathematical checks do not establish real-world calibration, grasp or collision accuracy.
+Camera orientation: raw physical table frame; no image flip. Native size: (1920, 1080)
+Gripper profile: dual_zone
+Custom contact heights (m): {'screw': 0.0025, 'cube': 0.0025, 'vial': 0.003, 'cap': 0.005}
+Motion confirmations: mount/TCP= False  inventory= False  layout= False
+Cap narrow-end-up confirmed: False
+Offsets are proposed controller-TCP coordinates; measure before physical motion.
+Original Asher gaps: primary8--20mm; cap14--26mm; nominal vial17x140mm
+Motion enabled: False; poses confirmed: False
+Allowed kinds: ('cube', 'vial', 'cap'); width upper-bound bypass for verified-fit kinds: ('screw', 'cube')
+Configured inventory must fit each mechanical gap; camera widths remain finite and positive
+PASS: configured grasp dimensions and TCP-axis/rail-spacing arithmetic (unconfirmed caps excluded)
+Scan mode: batch; destination correction: True; watch: False
+One SAM pass per batch; fresh RGB change checks between picks; final rescan even at attempt limit
+SHA256 7a8df1da65f238a1445319d720c1a2ce143e344754d44e42ff2f82d6d68a29f3 calibration/cameras.json
+PASS: projection arithmetic, resize/frame conventions, UF0 conversion and configured pose bounds
+These mathematical checks do not establish real-world calibration, grasp or collision accuracy.
+Camera orientation: raw physical table frame; no image flip. Native size: (1920, 1080)
+Gripper profile: dual_zone_v2
+Custom contact heights (m): {'screw': 0.0025, 'cube': 0.0025, 'vial': 0.003, 'cap': 0.005}
+Motion confirmations: mount/TCP= False  inventory= False  layout= False
+Cap narrow-end-up confirmed: False
+Offsets are proposed controller-TCP coordinates; measure before physical motion.
+V2 gaps: primary5.2--17.2mm; wide18--30mm; real vial27.18x203mm, near-end grasp
+Motion enabled: False; poses confirmed: False
+Allowed kinds: ('screw', 'cube', 'vial', 'cap'); width upper-bound bypass for verified-fit kinds: ('screw', 'cube')
+Configured inventory must fit each mechanical gap; camera widths remain finite and positive
+PASS: configured grasp dimensions and TCP-axis/rail-spacing arithmetic (unconfirmed caps excluded)
+Scan mode: batch; destination correction: True; watch: False
+One SAM pass per batch; fresh RGB change checks between picks; final rescan even at attempt limit
+SHA256 7a8df1da65f238a1445319d720c1a2ce143e344754d44e42ff2f82d6d68a29f3 calibration/cameras.json

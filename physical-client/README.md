@@ -1,13 +1,20 @@
-# MVP2 physical client
+# MVP2 physical client — separate dual-zone integration
+
+Current branch: **`feature/mvp2-dual-zone`**, based on the batch MVP `732f43b`
+and Asher's `1fbc58b`. Start with [DUAL_ZONE_HANDOFF.md](DUAL_ZONE_HANDOFF.md)
+for the new printable fingers and physical port. `feature/mvp2` remains the
+separate updated MVP. The default profile here is `legacy`; explicitly select
+`SORT_GRIPPER_PROFILE=dual_zone_v2` for the revised hardware. Motion is disabled.
 
 Prepared from the supplied ROSIE source snapshot after commit `a2feb54` and the
 organizer client at `ff7534e`. This folder runs independently of Isaac Sim.
 `run.py`, `cell_client.py` and `mock_cell.py` are unchanged organizer files.
 
-Use [BATCH_HANDOFF.md](BATCH_HANDOFF.md) for the current update and deployment
-sequence. The physical MVP is preserved on `feature/mvp2` at `91ecca7`.
-This update adds batch execution; that behavior still needs supervised physical
-validation. The installation and request instructions below also cover a new setup.
+The prior [BATCH_HANDOFF.md](BATCH_HANDOFF.md) records the batch-only update.
+Commit `91ecca7` preserves the earlier lab-tested physical implementation;
+`732f43b` adds the subsequently tested software batch changes. Neither the new
+batch workflow nor the revised printed fingers has a new physical test yet.
+The legacy installation and request instructions below also cover a new setup.
 
 ## What is ready
 

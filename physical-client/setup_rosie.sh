@@ -20,7 +20,7 @@ fi
 hash -r
 uv --version
 uv sync --locked
-uv run python -m unittest -v test_sorting.py test_physical.py test_workflow.py test_batch.py test_batch_watch.py
+SORT_GRIPPER_PROFILE=legacy uv run python -m unittest -v test_sorting.py test_physical.py test_workflow.py test_batch.py test_batch_watch.py test_gripper_profile.py test_dual_clearance.py test_dual_policy.py test_dual_pixels.py
 uv run preflight.py
 uv run camera_check.py --output camera_mapping.png
 uv run run.py --mock --trials 1 --trial-s 3

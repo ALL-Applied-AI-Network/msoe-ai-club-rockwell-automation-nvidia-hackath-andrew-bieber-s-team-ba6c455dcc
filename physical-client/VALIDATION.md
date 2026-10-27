@@ -1,4 +1,41 @@
-# Batch update validation
+# Dual-zone integration validation — 2026-10-27 UTC
+
+Integration base `732f43b`; Asher source `1fbc58b`. This is the separate
+`feature/mvp2-dual-zone` candidate. The earlier physical baseline remains
+`91ecca7`; no new physical performance is claimed.
+
+- **106 physical-client host tests passed** in the local environment, retaining
+  the 58 legacy/batch checks and adding geometry, clearance, action-state and
+  RGB tests. Evidence: `audit/dual-zone-physical-tests.log`.
+- Physical per-kind geometry, the 81.5 mm vial contact offset, opposite
+  approaches, finite calibration, source-return payload clearance and full-plan
+  rejection before grasp are exercised. Generated action rows pass the supplied
+  organizer validator. Synthetic RGB tests use actual physical calibration and
+  FakeSam; no weights or GPU are loaded.
+- Legacy and revised-profile preflight pass with motion and all custom-hardware
+  confirmations false. Real camera calibration is unchanged.
+- **42 simulator host tests passed**, including the retained 33 starter tests.
+  Original `dual` and revised `dual_v2` each pass ten numerical trajectory and
+  wall/object envelope checks. Logs are in this audit folder. The ten-object
+  demo excludes screws and uses 10 mm cubes; screw/16 mm cube evidence is fit
+  arithmetic, not a dynamic pickup test.
+- CAD left/right bodies and mounting coupon are valid connected solids; STL
+  checks report manifold closed meshes. Thirteen sampled jaw positions show
+  no positive-volume interference with the official stock actuator/jaw model
+  or the opposite printed finger. See `../hardware/dual_zone_v2/cad_validation.json`.
+
+These checks do not validate real mounting, material strength, pad retention,
+gripping force, calibration, full-arm collision clearance, physical recognition
+or grasp success. No new Isaac dynamics, loaded SAM inference or robot run was
+performed here. The simulator's earlier successful run is Asher's reported
+result for his original dimensions, not validation of this revision.
+
+The source export omitted the simulator's `calibration/cameras.json`; the
+additional MVP simulator `test_sorting.py` could not run against that missing
+fixture here. Its source is preserved, and the installer checks it in the full
+ROSIE checkout. No replacement physical calibration was substituted.
+
+## Prior batch-only validation (retained record)
 
 Baseline: the physical MVP preserved on `feature/mvp2` as `91ecca7`, supplied
 in `physical-mvp-lab-baseline.tar.gz`. This update changes the scheduling of

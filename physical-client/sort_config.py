@@ -61,7 +61,12 @@ PAUSE_AFTER_LARGE_OBJECT = True  # caps/vials can hook: inspect release before r
 
 # Initial physical test scope. Preview still shows all recognized objects.
 # Check the actual jaw clearance / custom fingers before broadening these.
-PHYSICAL_ALLOWED_KINDS = ("screw", "cube")
+PHYSICAL_GRIPPER_PROFILE = os.environ.get("SORT_GRIPPER_PROFILE", "legacy")
+PHYSICAL_ALLOWED_KINDS = {
+    "legacy": ("screw", "cube"),
+    "dual_zone": ("cube", "vial", "cap"),
+    "dual_zone_v2": ("screw", "cube", "vial", "cap"),
+}.get(PHYSICAL_GRIPPER_PROFILE, ())
 PHYSICAL_MAX_GRASP_WIDTH_MM = 11.0
 PHYSICAL_INSPECT_DROP_AREAS = True
 PHYSICAL_WATCH = False
@@ -75,3 +80,30 @@ PHYSICAL_VERIFIED_FIT_KINDS = ("screw", "cube")
 # 'per_pick' restores the original source scan before every drop.
 PHYSICAL_SCAN_MODE = "batch"
 PHYSICAL_BATCH_MAX_IDLE_PASSES = 2  # stop if every cached target keeps changing
+
+# Custom fingers: proposed contact frames, NOT a measured physical UTOOL.
+# Set these only after mounting, measuring inventory and reviewing real overlays.
+DUAL_ZONE_MOUNT_CONFIRMED = False
+DUAL_ZONE_OBJECTS_CONFIRMED = False
+DUAL_ZONE_LAYOUT_CONFIRMED = False
+DUAL_ZONE_PRIMARY_OFFSET_TCP_M = (0.0, 0.0, 0.0)
+DUAL_ZONE_CAP_OFFSET_TCP_M = (0.040, 0.0, 0.0)
+DUAL_ZONE_CUBE_WIDTH_RANGE_MM = (9.0, 16.0)
+DUAL_ZONE_CAP_NARROW_END_UP = False
+DUAL_ZONE_PICK_HEIGHTS_M = {"screw": .0025, "cube": .0025, "vial": .003, "cap": .005}
+# Asher's original simulator inventory is preserved as a separate profile.
+DUAL_ZONE_VIAL_DIAMETER_MM = 17.0
+DUAL_ZONE_VIAL_LENGTH_MM = 140.0
+# Organizer's physical CAD dimensions; v0.5's vial was scaled down.
+DUAL_ZONE_V2_VIAL_DIAMETER_MM = 27.18
+DUAL_ZONE_V2_VIAL_LENGTH_MM = 203.0
+DUAL_ZONE_V2_VIAL_END_INSET_M = .020
+DUAL_ZONE_V2_SCREW_DIAMETER_MM = 6.0
+DUAL_ZONE_V2_SCREW_LENGTH_MM = 30.0
+DUAL_ZONE_CLEARANCE_MM = 2.0
+DUAL_ZONE_MAX_OBSTACLE_HEIGHT_M = .045
+# Supply measured walls/stops as bounds_xy, height_m, optional base_z_m.
+# The simulator's enclosures are not presumed present in the physical cell.
+DUAL_ZONE_STATIC_OBSTACLES = []
+if PHYSICAL_GRIPPER_PROFILE != "legacy":
+    PAUSE_AFTER_LARGE_OBJECT = False  # batch mode; all three confirmation gates still apply

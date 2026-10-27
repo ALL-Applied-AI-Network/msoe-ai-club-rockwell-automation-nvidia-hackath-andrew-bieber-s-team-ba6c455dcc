@@ -240,8 +240,10 @@ CUBE_EDGE = 0.010  # hackathon: 2 mm clearance inside measured 12 mm open gap
 # Target contact at the hooked ends, allowing 0.3 mm per-jaw seating travel.
 FINGER_INNER_TIP = (SCALLOP_R**2 - SCALLOP_ABOVE_TIP**2) ** 0.5
 
-# Finger set: "scallop" (original AA-pocket blades) or "padded" (flat blades with
-# relieved, rubber-padded tips, from Padded_Gripper_Test.STEP).  Switch per run:
+# Finger set: "scallop" (original AA-pocket blades), "padded" (flat blades with
+# relieved, rubber-padded tips), "dual" (original offset grasp zones), or
+# "dual_v2" (revised screw/cube primary and real-vial/cap secondary zones).
+# Padded geometry originates from Padded_Gripper_Test.STEP. Switch per run:
 #   FINGER_SET=padded python <script>
 # PAD_FACE_MM overrides the relief depth (STEP value: 4 mm -> pad gap 8 closed / 20 open).
 import os as _os
@@ -250,7 +252,15 @@ FINGER_SET = _os.environ.get("FINGER_SET", "scallop")
 PAD_STEP_X = 0.044  # relief starts here, measured from the carriage end (STEP: 44 mm)
 PAD_T = 0.001  # rubber pad thickness
 PAD_FACE = float(_os.environ.get("PAD_FACE_MM", "4")) / 1000.0
-if FINGER_SET == "padded":
+PAD_LEAD_IN = 0.0  # Square pad ends; no uncalibrated lead-in.
+if FINGER_SET not in ("scallop", "padded", "dual", "dual_v2"):
+    raise ValueError("Supported FINGER_SET values: scallop, padded, dual, dual_v2")
+if FINGER_SET == "dual":
+    PAD_FACE = 0.004  # Primary zone: 8--20 mm; actuator unchanged.
+if FINGER_SET == "dual_v2":
+    PAD_FACE = 0.0026  # Revision: 5.2--17.2 mm for M6 shafts and measured cubes.
+    FINGER_WIDTH = 0.01845  # Final CAD v2 outer faces; 48.9 mm total open envelope.
+if FINGER_SET in ("padded", "dual", "dual_v2"):
     assert PAD_STEP_X < FINGER_LENGTH
     assert PAD_FACE >= 0.0 and PAD_FACE + PAD_T <= FINGER_WIDTH - 0.003, (
         "PAD_FACE too deep: less than 3 mm of support would remain behind the pad"
@@ -274,6 +284,10 @@ SORT_CUBES = [
 # Translation accounts for the offset: T = (x_ctr - L/2·cos(yaw), y - L/2·sin(yaw)).
 VIAL_RADIUS = 0.017 / 2  # RENDER-FIT: reduce tube silhouette width
 VIAL_LENGTH = 0.1400  # PHOTO-FIT: 140 mm, conditional on table prior
+if FINGER_SET == "dual_v2":
+    # Organizer CAD dimensions; the original dual prototype remains photo-scaled.
+    VIAL_RADIUS = 0.02718 / 2
+    VIAL_LENGTH = 0.203
 VIAL_MASS = 0.020
 SORT_VIALS = [
     (0.423296, -0.218227, 39.638288),

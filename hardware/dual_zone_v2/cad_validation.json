@@ -1,0 +1,250 @@
+{
+  "design": "CSI dual-zone V2 geometric prototype",
+  "units": "mm",
+  "scope": "geometric CAD checks only",
+  "stock_source": "https://hackathon.sidclab.org/files/SMC-MHZL2-16D2.step",
+  "stock_sha256": "a348a19a31a537429f46b471c1bb46bcb993707bb735a80ced08ad5a038fce52",
+  "solid_checks": {
+    "left_body": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 12222.814877628429
+    },
+    "right_body": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 12222.814877628429
+    },
+    "mounting_coupon": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 957.8548776284288
+    }
+  },
+  "mesh_checks": {
+    "left_body": {
+      "triangles": 1328,
+      "boundary_or_nonmanifold_edges": 0,
+      "signed_volume_mm3": 12222.8466403914,
+      "extents_mm": [
+        49.0,
+        73.69999694824219,
+        14.850000381469727
+      ]
+    },
+    "right_body": {
+      "triangles": 1328,
+      "boundary_or_nonmanifold_edges": 0,
+      "signed_volume_mm3": 12222.846902652784,
+      "extents_mm": [
+        49.0,
+        73.69999694824219,
+        14.850000381469727
+      ]
+    },
+    "contact_pad_quantity_4": {
+      "triangles": 12,
+      "boundary_or_nonmanifold_edges": 0,
+      "signed_volume_mm3": 192.0,
+      "extents_mm": [
+        6.0,
+        32.0,
+        1.0
+      ]
+    },
+    "mounting_coupon": {
+      "triangles": 1284,
+      "boundary_or_nonmanifold_edges": 0,
+      "signed_volume_mm3": 957.8870715666436,
+      "extents_mm": [
+        12.0,
+        15.0,
+        6.0
+      ]
+    }
+  },
+  "jaw_sweep": [
+    {
+      "jaw_open_mm_each": 0.0,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 0.5,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 1.0,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 1.5,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 2.0,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 2.5,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 3.0,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 3.5,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 4.0,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 4.5,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 5.0,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 5.5,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    },
+    {
+      "jaw_open_mm_each": 6.0,
+      "printed_vs_stock_intersection_mm3": 0.0,
+      "opposed_finger_intersection_mm3": 0.0
+    }
+  ],
+  "gap_endpoints_mm": {
+    "primary": [
+      5.2,
+      17.2
+    ],
+    "wide": [
+      18.0,
+      30.0
+    ]
+  },
+  "mounting_holes": {
+    "printed_diameter_mm": 3.6,
+    "stock_diameter_mm": 3.4,
+    "centers_stock_step_mm": [
+      [
+        0.0,
+        13.8
+      ],
+      [
+        0.0,
+        20.8
+      ]
+    ],
+    "center_columns": [
+      "X",
+      "Z"
+    ],
+    "pitch_mm": 7.0,
+    "bore_axis": "Y",
+    "mounting": "outside each stock D2 tongue"
+  },
+  "tip_z_stock_step_mm": 83.5,
+  "bridge_clearance_above_tip_mm": 47.7,
+  "low_rail_open_envelope_mm": {
+    "thickness_along_offset": 6.0,
+    "full_outer_width": 48.9,
+    "offset": 40.0
+  },
+  "nominal_object_fit": [
+    {
+      "object": "M6 shaft",
+      "width_mm": 6,
+      "zone": "primary",
+      "entry_clearance_mm_each": 5.6,
+      "simulated_jaw_target_mm_each": 0.09999999999999992,
+      "binary_physical_command": "close; jaw position is not controlled",
+      "geometric_fit": true
+    },
+    {
+      "object": "9 mm cube",
+      "width_mm": 9,
+      "zone": "primary",
+      "entry_clearance_mm_each": 4.1,
+      "simulated_jaw_target_mm_each": 1.5999999999999999,
+      "binary_physical_command": "close; jaw position is not controlled",
+      "geometric_fit": true
+    },
+    {
+      "object": "10 mm cube",
+      "width_mm": 10,
+      "zone": "primary",
+      "entry_clearance_mm_each": 3.5999999999999996,
+      "simulated_jaw_target_mm_each": 2.1,
+      "binary_physical_command": "close; jaw position is not controlled",
+      "geometric_fit": true
+    },
+    {
+      "object": "11 mm cube",
+      "width_mm": 11,
+      "zone": "primary",
+      "entry_clearance_mm_each": 3.0999999999999996,
+      "simulated_jaw_target_mm_each": 2.6,
+      "binary_physical_command": "close; jaw position is not controlled",
+      "geometric_fit": true
+    },
+    {
+      "object": "16 mm cube",
+      "width_mm": 16,
+      "zone": "primary",
+      "entry_clearance_mm_each": 0.5999999999999996,
+      "simulated_jaw_target_mm_each": 5.1000000000000005,
+      "binary_physical_command": "close; jaw position is not controlled",
+      "geometric_fit": true
+    },
+    {
+      "object": "cap plug at 5 mm",
+      "width_mm": 23.04825354655,
+      "zone": "wide",
+      "entry_clearance_mm_each": 3.4758732267249997,
+      "simulated_jaw_target_mm_each": 2.2241267732750005,
+      "binary_physical_command": "close; jaw position is not controlled",
+      "geometric_fit": true
+    },
+    {
+      "object": "real vial",
+      "width_mm": 27.18,
+      "zone": "wide",
+      "entry_clearance_mm_each": 1.4100000000000001,
+      "simulated_jaw_target_mm_each": 4.29,
+      "binary_physical_command": "close; jaw position is not controlled",
+      "geometric_fit": true
+    }
+  ],
+  "vial_end_grasp": {
+    "centre_to_contact_mm": 81.5,
+    "inset_from_end_mm": 20.0,
+    "inactive_rail_axial_clearance_mm": 17.0,
+    "physical_retention_verified": false
+  },
+  "limits": [
+    "No physical mounting or gripping test",
+    "No structural or fatigue analysis",
+    "Reference is stock D2 actuator CAD, not a survey of the installed cell",
+    "Requires four finished 1 mm pads; adhesive thickness is included",
+    "Physical TCP and both grip-zone offsets require calibration",
+    "Real vial needs end-biased grasp so inactive narrow rail clears its length"
+  ]
+}

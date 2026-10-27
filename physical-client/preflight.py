@@ -14,6 +14,7 @@ import yaml
 from calibration.geometry import load, project, pixel_to_base, UF0_Z_MM, SURFACE_Z
 from policy import Policy, base_to_tcp
 import sort_config as S
+import gripper_profile as G
 
 
 def main():
@@ -37,15 +38,39 @@ def main():
     if not 0.001 <= S.DROP_HEIGHT < S.TRAVEL_HEIGHT:
         raise SystemExit("Release height must be above the table and below travel height")
     Policy.batch_mode()  # validate configured scan mode without connecting
+    profile = G.profile_name()
+    if profile != "legacy":
+        widths = {"screw":6., "cube":10., "vial":27.18 if profile == "dual_zone_v2" else 17.,
+                  "cap":31.75}
+        for kind in S.PHYSICAL_ALLOWED_KINDS:
+            if kind == "cap" and not S.DUAL_ZONE_CAP_NARROW_END_UP:
+                continue  # preview may identify caps; motion remains explicitly disabled
+            G.grasp_spec({"kind":kind,"short_mm":widths[kind]})
     if S.PHYSICAL_BATCH_MAX_IDLE_PASSES < 1:
         raise SystemExit("PHYSICAL_BATCH_MAX_IDLE_PASSES must be positive")
     print("PASS: projection arithmetic, resize/frame conventions, UF0 conversion and configured pose bounds")
     print("These mathematical checks do not establish real-world calibration, grasp or collision accuracy.")
     print(f"Camera orientation: raw physical table frame; no image flip. Native size: {cam['size']}")
-    print(f"Release: {S.DROP_HEIGHT*1000:.1f} mm fingertip above bare table (proposed; verify in cell)")
+    print(f"Gripper profile: {profile}")
+    if profile == "legacy":
+        print(f"Release: {S.DROP_HEIGHT*1000:.1f} mm fingertip above bare table (proposed; verify in cell)")
+    else:
+        print("Custom contact heights (m):", S.DUAL_ZONE_PICK_HEIGHTS_M)
+        print("Motion confirmations: mount/TCP=",S.DUAL_ZONE_MOUNT_CONFIRMED,
+              " inventory=",S.DUAL_ZONE_OBJECTS_CONFIRMED," layout=",S.DUAL_ZONE_LAYOUT_CONFIRMED)
+        print("Cap narrow-end-up confirmed:",S.DUAL_ZONE_CAP_NARROW_END_UP)
+        print("Offsets are proposed controller-TCP coordinates; measure before physical motion.")
+        if profile == "dual_zone_v2":
+            print("V2 gaps: primary5.2--17.2mm; wide18--30mm; real vial27.18x203mm, near-end grasp")
+        else:
+            print("Original Asher gaps: primary8--20mm; cap14--26mm; nominal vial17x140mm")
     print(f"Motion enabled: {S.PHYSICAL_EXECUTE}; poses confirmed: {S.PHYSICAL_POSES_CONFIRMED}")
     print(f"Allowed kinds: {S.PHYSICAL_ALLOWED_KINDS}; width upper-bound bypass for verified-fit kinds: {S.PHYSICAL_VERIFIED_FIT_KINDS}")
-    print(f"Width upper bound for other kinds: {S.PHYSICAL_MAX_GRASP_WIDTH_MM} mm; finite positive widths still required")
+    if profile == "legacy":
+        print(f"Width upper bound for other kinds: {S.PHYSICAL_MAX_GRASP_WIDTH_MM} mm; finite positive widths still required")
+    else:
+        print("Configured inventory must fit each mechanical gap; camera widths remain finite and positive")
+        print("PASS: configured grasp dimensions and TCP-axis/rail-spacing arithmetic (unconfirmed caps excluded)")
     print(f"Scan mode: {S.PHYSICAL_SCAN_MODE}; destination correction: {S.PHYSICAL_INSPECT_DROP_AREAS}; watch: {S.PHYSICAL_WATCH}")
     if Policy.batch_mode():
         print("One SAM pass per batch; fresh RGB change checks between picks; final rescan even at attempt limit")
@@ -60,6 +85,8 @@ def main():
         subprocess.run([str(python),"-c",check],check=True,timeout=45)
         print("SAM import check does not load weights or run inference.")
     if args.submission:
+        if profile != "legacy":
+            raise SystemExit("Existing submission is the legacy task; prepare a separate custom-hardware request using DUAL_ZONE_HANDOFF.md")
         sub=yaml.safe_load((S.ROOT/'submission/submission.yaml').read_text())
         place=yaml.safe_load((S.ROOT/'submission/placement.yaml').read_text())
         if "@" not in sub.get('contact','') or '<' in sub.get('team',''):

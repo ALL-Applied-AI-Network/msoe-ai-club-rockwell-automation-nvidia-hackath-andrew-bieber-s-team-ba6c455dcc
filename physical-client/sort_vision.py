@@ -84,7 +84,7 @@ def metric_shape(points):
 
 def build_candidates(detections, projector: Callable, workspace=S.WORKSPACE,
                      drops=None, exclude_drops=True, allow_misc=False, height_at=None,
-                     inspect_drop_areas=False):
+                     inspect_drop_areas=False, height_by_kind=None):
     """projector(u,v,height_m) -> base XY in metres; height is above the surface."""
     drops = S.DROP_XY if drops is None else drops
     found, rejected = [], []
@@ -115,6 +115,10 @@ def build_candidates(detections, projector: Callable, workspace=S.WORKSPACE,
             height = misc_height if kind == "misc" else {
                 "screw": 0.006, "cube": 0.010 if long < 14 else 0.016,
                 "cap": 0.0157, "vial": min(short / 1000, 0.02718)}[kind]
+            if height_by_kind and kind in height_by_kind:
+                height = float(height_by_kind[kind])
+                if not np.isfinite(height) or height <= 0:
+                    raise ValueError("Configured visible object height must be finite and positive")
             points = np.array([projector(u, v, height) for u, v in contour])
             long, short, axis = metric_shape(points)
             u, v = map(float, d["center_full_px"])
