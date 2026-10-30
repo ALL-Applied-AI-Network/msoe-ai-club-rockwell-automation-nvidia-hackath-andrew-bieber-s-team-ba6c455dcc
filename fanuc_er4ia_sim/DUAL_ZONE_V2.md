@@ -124,6 +124,28 @@ FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced
 FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced.py
 ```
 
+## Recovery after a drop or miss
+
+A failed pick no longer ends the run. If an object drops, never lifts, is
+nudged before the fingers close, or misses its slot, the arm opens its jaws,
+rises 100 mm, returns to the scan pose, rescans and plans a fresh pick from
+wherever the object landed. Each object may fail `--max-recoveries` times
+(default 3). After that it is reported failed and the sort continues with the
+other objects. Sorted objects that get knocked out of their slot are re-queued.
+The console shows `[recover]` lines; `sort_report.json` lists `recoveries` and
+`failed_objects`, and the last line reports `N/M objects placed; K recoveries`.
+
+To see it work, `--force-drop` opens the jaws halfway through the first
+object's carry; the arm should back off, rescan and pick it up again:
+
+```bash
+FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced.py --only cube --force-drop
+```
+
+Failures are detected with simulator poses (evaluation only); the retry target
+always comes from a fresh camera scan. On the physical cell, detection would
+need a camera check after each placement instead.
+
 ## Validation boundary
 
 The revised code passed 33 existing host tests and nine new profile tests.

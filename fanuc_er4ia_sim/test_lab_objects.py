@@ -49,7 +49,18 @@ def rejects(mask, kind, size=None):
         return True
 
 items = S.inventory()
-print(json.dumps(dict(
+import fk
+from scan_sort_motion import recovery_steps, finger_boxes
+park = S.park_pose()
+vial = next(p for p in items if p['category'] == 'vial')
+carry = dict(S.plan_any(vial, park)[1])['carry']
+frames = recovery_steps(carry[len(carry)//2][0], park, 'vial')
+recovery = dict(ends_at_park=bool(np.allclose(frames[-1][0], park)),
+                jaws_open=all(j == C.JAW_OPEN for _, j in frames),
+                max_step_deg=float(np.degrees(np.abs(np.diff([f[0] for f in frames], axis=0))).max()),
+                lowest_mm=float(min((c-np.abs(r)@h)[2]-C.SURFACE_DZ for q, j in frames
+                                    for _, (c, r, h) in finger_boxes(q, j))*1000))
+print(json.dumps(dict(recovery=recovery,
     screw=[C.SCREW_LENGTH, C.SCREW_HEAD_D, C.SCREW_SHANK_D],
     cube_edges=sorted({p['size'] for p in items if p['category'] == 'cube'}),
     vial=[2*C.VIAL_RADIUS, C.VIAL_LENGTH], cap=[2*C.CAP_RADIUS, C.CAP_HEIGHT],
@@ -100,6 +111,13 @@ class LabObjectTests(unittest.TestCase):
     def test_cube_size_gate(self):
         self.assertGreaterEqual(self.data['cube16_iou'], .85)
         self.assertTrue(all(self.data['size_gate']))
+
+    def test_recovery_backs_off_to_the_scan_pose(self):
+        r = self.data['recovery']
+        self.assertTrue(r['ends_at_park'])
+        self.assertTrue(r['jaws_open'])
+        self.assertLess(r['max_step_deg'], 2.)
+        self.assertGreater(r['lowest_mm'], 50.)  # failure mid-carry: stays high
 
     def test_destinations_are_distinct(self):
         slots = [tuple(xy) for xy in self.data['destinations'].values()]

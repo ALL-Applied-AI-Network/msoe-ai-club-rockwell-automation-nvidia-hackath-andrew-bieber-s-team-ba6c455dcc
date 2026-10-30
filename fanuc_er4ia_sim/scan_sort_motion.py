@@ -140,7 +140,38 @@ def trajectory(pick, previous=None):
     return initial, phases, pick, worst
 
 
-def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=None):
+def recovery_steps(q_now, park_q, category, rise=0.10):
+    """Back off after a failed pick: open the jaws in place, rise straight up,
+    then a smooth joint-space move to the scan park pose. Returns (q, jaw) frames
+    at 30 frames/s. Both ends of the joint move are high above the table."""
+    ik.set_tool_axis(C.TOOL_AXIS)
+    ik.set_spread_axis(C.FINGER_SPREAD_AXIS)
+    tool = D.tool_offset(category)
+    limits = np.deg2rad([C.JOINT_LIMITS_DEG[f"J{i}"] for i in range(1, 7)])
+    down = np.array([0.0, 0.0, -1.0])
+    q = np.asarray(q_now, float).copy()
+    frames = [(q.copy(), C.JAW_OPEN)] * 20  # open in place (0.67 s)
+    rotation, start = fk.tool_pose(q, tool)
+    spread = rotation @ np.asarray(C.FINGER_SPREAD_AXIS)
+    spread[2] = 0.0
+    spread /= max(np.linalg.norm(spread), 1e-9)
+    goal = start + [0.0, 0.0, max(0.0, min(rise, 0.30 - start[2]))]
+    for i in range(45):  # straight up (1.5 s)
+        target = start + (goal - start) * ease((i + 1) / 45)
+        q_next, ok = ik.solve(q, target, down, limits, tool_offset=tool, spread_dir=spread)
+        if not ok:
+            break  # near a limit: go straight to the joint move from here
+        q = q_next
+        frames.append((q.copy(), C.JAW_OPEN))
+    count = max(60, int(np.ceil(np.degrees(np.max(np.abs(park_q - q))) / 30.0 * 30)))
+    for i in range(count):  # joint move to park, at most ~30 deg/s per joint
+        frames.append((q + (park_q - q) * ease((i + 1) / count), C.JAW_OPEN))
+    return frames
+
+
+def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=None,
+             force_drop=False):
+    """force_drop: open the jaws halfway through the carry (recovery demo/test)."""
     from isaacsim.core.prims import SingleXFormPrim
     initial, phases, pick, worst = plan
     # reset_xform_properties=False: the default rewrites the prim's xform from the
@@ -176,6 +207,11 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
             if phase_hook is not None: phase_hook(name)
             print(f"[demo] {name.upper()}", flush=True)
             for frame, (q, jaw, target) in enumerate(steps):
+                if force_drop and name == "carry" and frame == len(steps)//2:
+                    print("[demo] FORCED DROP: opening the jaws mid-carry (--force-drop)", flush=True)
+                    report["forced_drop"] = True
+                if report.get("forced_drop") and name in ("carry", "lower"):
+                    jaw = C.JAW_OPEN
                 tick(q, jaw)
                 # Frame-level grip trace (diagnostics only): log every 15 frames, and
                 # the first frame the object turns >2 deg in the fingers.

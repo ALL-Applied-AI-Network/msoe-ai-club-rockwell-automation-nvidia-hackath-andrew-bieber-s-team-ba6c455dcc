@@ -12,7 +12,7 @@ import scene_config as C
 import dual_zone as D
 import fk,ik
 import scan_sort_motion as motion
-from scan_sort_motion import PARK_XYZ,PARK_SPREAD,trajectory,run_pick,pose_metrics,object_box,boxes_overlap,finger_boxes
+from scan_sort_motion import recovery_steps,PARK_XYZ,PARK_SPREAD,trajectory,run_pick,pose_metrics,object_box,boxes_overlap,finger_boxes
 from scan_sort_camera import Scanner
 import scan_sort_bins as bins
 SLOTS=bins.SLOTS
@@ -168,6 +168,11 @@ def main():
     parser.add_argument('--check-only',action='store_true')
     parser.add_argument('--exit-on-finish',action='store_true')
     parser.add_argument('--start-delay',type=float,default=10.)
+    parser.add_argument('--force-drop',action='store_true',
+                        help='Deliberately drop the first object mid-carry to demonstrate recovery')
+    parser.add_argument('--max-recoveries',type=int,default=3,
+                        help='Times one object may be dropped/missed and retried before it is '
+                             'reported failed (the sort then continues with the other objects)')
     parser.add_argument('--only',choices=('screw','cube','vial','cap'),
                         help='Pick only this category (quick test); other objects stay as obstacles')
     args=parser.parse_args()
@@ -266,15 +271,42 @@ def main():
         items=[p for _,_,p,_ in plans]
         plans.clear()
         executed=[]
-        current_q=initial.copy()
+        park_q=initial.copy()  # the scan pose every pick starts from and returns to
+        current_q=park_q.copy()
         pending=[p for p in items if args.only in (None,p['category'])]
         object_count=len(pending); report['expected_objects']=object_count
         report['scheduling_events']=[]
+        report['recoveries']=[]; report['failed_objects']=[]
+        failures_by_object=Counter(); abandoned=set()
+        number=0
+
+        def recover(prim,category,reason):
+            '''Count a failure; back off to the scan pose; give up after the limit.'''
+            nonlocal current_q,pending
+            failures_by_object[prim]+=1
+            count=failures_by_object[prim]
+            give_up=count>args.max_recoveries
+            report['recoveries'].append(dict(object=prim,failure=count,reason=reason,gave_up=give_up))
+            print(f"[recover] {prim}: {reason}",flush=True)
+            if give_up:
+                print(f"[recover] {prim}: failed {count} times; giving up on it and "
+                      f"continuing with the other objects",flush=True)
+                abandoned.add(prim); report['failed_objects'].append(prim)
+                pending=[p for p in pending if p['prim']!=prim]
+            else:
+                print(f"[recover] Backing off to the scan pose to rescan and retry "
+                      f"({count}/{args.max_recoveries})",flush=True)
+            for q,jaw in recovery_steps(measured()[arm_idx],park_q,category): tick(q,jaw)
+            for _ in range(30): tick(park_q,C.JAW_OPEN)  # let a dropped object settle
+            current_q=park_q.copy(); save()
+
         while pending:
-            number=len(executed)+1
+            number+=1
+            # Objects given up on may lie in poses the scan cannot read; leave them out.
+            active=[p for p in items if p['prim'] not in abandoned]
             def attempt(template):
-                observations=scanner.stable(items,template,tick,current_q)
-                snapshot=[from_scan(p,observations[p['prim']]) for p in items]
+                observations=scanner.stable(active,template,tick,current_q)
+                snapshot=[from_scan(p,observations[p['prim']]) for p in active]
                 pick=next(p for p in snapshot if p['prim']==template['prim'])
                 obstacles=[p for p in snapshot if p['prim']!=pick['prim']]
                 failures=[]
@@ -285,7 +317,16 @@ def main():
                         return plan,observations
                     except RuntimeError as exc: failures.append(str(exc))
                 raise BlockedGrasp(failures)
-            plan,observations=choose_next(pending,attempt,report['scheduling_events'])
+            try:
+                plan,observations=choose_next(pending,attempt,report['scheduling_events'])
+            except RuntimeError as exc:
+                # A dropped object may not settle, or land in a pose the scan cannot read.
+                # Count that as a failed attempt for objects that have already failed once.
+                text=str(exc)
+                culprits=[p for p in pending if failures_by_object[p['prim']] and p['prim'] in text]
+                if not culprits: raise
+                for p in culprits: recover(p['prim'],p['category'],'not found by the rescan: '+text[:160])
+                continue
             pick=plan[2]
             print(f"\n[scan] OBJECT {number}/{object_count}: {pick['group']} {pick['index']}",flush=True)
             save()
@@ -310,35 +351,51 @@ def main():
                               f'tool axis {np.round(rotation@np.asarray(C.TOOL_AXIS),3).tolist()}',flush=True)
                         raise RuntimeError(f'Object moved after scan (before {phase}): true centre '
                             f'{np.round(centre[:2],4).tolist()} vs scanned {np.round(pick["xy"],4).tolist()}, '
-                            f'off by dx={delta[0]:.2f} dy={delta[1]:.2f} mm; stop and rescan on a new run')
+                            f'off by dx={delta[0]:.2f} dy={delta[1]:.2f} mm; rescanning')
             item=run_pick(app,world,arm,arm_idx,tick,measured,plan,
-                          directory/f"{number:02d}_{pick['category']}_{pick['index']}.json",phase_hook=phase_guard)
+                          directory/f"{number:02d}_{pick['category']}_{pick['index']}.json",phase_hook=phase_guard,
+                          force_drop=args.force_drop and number==1)
             item['scan']=observations[pick['prim']]
-            executed.append(pick)
-            current_q=plan[1][-1][1][-1][0].copy()
+            item['attempt']=failures_by_object[pick['prim']]+1
             report['objects'].append(item); save()
-            if not item['complete']: raise RuntimeError(f"Pickup/placement failed for {pick['prim']}")
+            if not item['complete']:
+                # Simulator pose checks only TRIGGER the retry; the new grasp target
+                # always comes from a fresh camera scan.
+                recover(pick['prim'],pick['category'],item.get('error') or 'pickup/placement not verified')
+                continue
+            current_q=plan[1][-1][1][-1][0].copy()
+            executed.append(pick)
             pending=[p for p in pending if p['prim']!=pick['prim']]
-            # Later motions must not knock previously sorted objects out of place.
+            # Later motions (or a dropped object) may knock sorted objects out of place:
+            # put any that moved back in the queue to be sorted again.
             audit=[]
-            for p in executed:
+            for p in list(executed):
                 metrics=pose_metrics(handles[p['prim']],p,baseline[p['prim']][2])
                 audit.append(dict(object=p['category'],index=p['index'],group=p['group'],**metrics))
+                if not metrics['verified']:
+                    print(f"[recover] Sorted {p['prim']} was knocked out of its slot; re-queueing it",flush=True)
+                    executed.remove(p); pending.append(p)
+                    failures_by_object[p['prim']]+=1
+                    report['recoveries'].append(dict(object=p['prim'],failure=failures_by_object[p['prim']],
+                                                     reason='knocked out of its slot',gave_up=False))
             report['final_audit']=audit; save()
-            if not all(a['verified'] for a in audit): raise RuntimeError('Previously sorted object moved out of tolerance')
         # Additional settling and a final audit after every object has been moved.
         for _ in range(60): tick(current_q,C.JAW_OPEN)
         report['final_audit']=[dict(object=p['category'],index=p['index'],group=p['group'],
             **pose_metrics(handles[p['prim']],p,baseline[p['prim']][2])) for p in executed]
-        report['complete']=bool(len(report['objects'])==object_count
-            and all(r['complete'] for r in report['objects'])
+        report['placed_objects']=len(executed)
+        report['complete']=bool(len(executed)==object_count and not report['failed_objects']
             and all(r['verified'] for r in report['final_audit']))
     except Exception as exc:
         report['error']=str(exc); traceback.print_exc()
     finally:
         save()
+        placed=report.get('placed_objects',sum(r['complete'] for r in report['objects']))
         print(f"[sort] {'PASS' if report['complete'] else 'FAIL'}: "
-              f"{sum(r['complete'] for r in report['objects'])}/{report['expected_objects']} individual placements",flush=True)
+              f"{placed}/{report['expected_objects']} objects placed; "
+              f"{len(report.get('recoveries',[]))} recoveries",flush=True)
+        if report.get('failed_objects'):
+            print(f"[sort] Gave up on: {', '.join(report['failed_objects'])}",flush=True)
         print(f'[sort] Report: {path}',flush=True)
         try:
             if world is not None and app.is_running(): world.pause()
