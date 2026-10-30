@@ -20,6 +20,7 @@ from demo_dual_zone import ease, turn, segments as original_segments
 
 # Two separate slots per group, metres in robot-base XY.
 from scan_sort_bins import SLOTS
+import scan_sort_bins as BINS_MOD
 
 # Scan park pose: tool 300 mm above (0.08, 0), fingers closing along X.
 # Keeps the arm and wrist camera out of the overhead camera's view of every
@@ -57,6 +58,8 @@ def segments(pick, home):
             # Carry 10 s (was 6 s): slip began at peak carry acceleration.
             duration = {'close':1.0, 'dwell':1.0, 'lift':1.6, 'carry':5.0,
                         'lower':1.2, 'release':1.2, 'settle':3.0}.get(name,duration)
+        if name == 'settle' and pick.get('bin'):
+            duration = max(duration, 1.5)  # dropped ~30 mm into the pocket: let it settle
         if name == 'carry':
             # Smoothstep peak acceleration is 6 D / T^2; stretch T to respect the limit.
             # (Two simulation seconds per duration unit.)
@@ -80,6 +83,9 @@ def inventory():
             pick["group"] = group
             pick["color"] = C.SORT_CUBES[index][2] if kind == "cube" else None
             pick["place_xy"] = list(SLOTS[group][used[group]])
+            pick["bin"] = BINS_MOD.bin_for(group, used[group])
+            if pick["bin"]:
+                pick["place_z"] = C.SURFACE_DZ + BINS_MOD.release_tip_height()
             used[group] += 1
             result.append(pick)
     return result
@@ -268,8 +274,12 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
                 after = object_centre()
                 movement = float(np.linalg.norm(after-settled))
                 report["retreat_object_motion_mm"] = movement*1000
-                report["release_verified"] = bool(movement < 0.002
-                    and abs(after[2]-before[2]) < 0.0015)
+                if pick.get("bin"):
+                    # Dropped into a bin: released if it stays below the rim, in the pocket.
+                    report["release_verified"] = BINS_MOD.in_bin(after, pick["bin"])
+                else:
+                    report["release_verified"] = bool(movement < 0.002
+                        and abs(after[2]-before[2]) < 0.0015)
                 if not report["release_verified"]:
                     print("[demo] Release check failed; recording final pose.", flush=True)
         centre = object_centre()
@@ -288,10 +298,17 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
             yaw = float(np.degrees(np.arctan2(2*(x*y+z*w), 1-2*(y*y+z*z))))
             report["yaw_error_deg_mod90"] = abs((yaw+45)%90-45)
             orientation_ok = orientation_ok and report["yaw_error_deg_mod90"] < 8
-        report["placement_verified"] = bool(report["pickup_verified"]
-            and report["carry_verified"] and report["release_verified"]
-            and xy_error < C.CUBE_STACK_SITE_TOLERANCE and z_error < 0.0015
-            and orientation_ok)
+        if pick.get("bin"):
+            # In a bin, any resting pose inside the right pocket counts.
+            report["bin"] = pick["bin"]
+            report["in_bin"] = BINS_MOD.in_bin(centre, pick["bin"])
+            report["placement_verified"] = bool(report["pickup_verified"]
+                and report["carry_verified"] and report["release_verified"] and report["in_bin"])
+        else:
+            report["placement_verified"] = bool(report["pickup_verified"]
+                and report["carry_verified"] and report["release_verified"]
+                and xy_error < C.CUBE_STACK_SITE_TOLERANCE and z_error < 0.0015
+                and orientation_ok)
         report["complete"] = report["placement_verified"]
         if not report["complete"]:
             report["error"] = (
@@ -425,6 +442,10 @@ def pose_metrics(handle,pick,reference_z):
     yaw=float(np.degrees(np.arctan2(2*(x*y+z*w),1-2*(y*y+z*z))))
     yaw_error=abs((yaw+45)%90-45)
     orient=lying_ok(pick['category'],tilt)
+    if pick.get('bin'):
+        inside=BINS_MOD.in_bin(centre,pick['bin'])
+        return dict(centre_world_m=centre.tolist(),bin=pick['bin'],in_bin=inside,
+                    tilt_deg=tilt,verified=inside)
     if pick['category']=='cube': orient=orient and yaw_error<8
     return dict(centre_world_m=centre.tolist(),xy_error_mm=xy*1000,z_error_mm=dz*1000,
                 tilt_deg=tilt,yaw_error_deg_mod90=yaw_error,

@@ -70,8 +70,15 @@ print(json.dumps(dict(recovery=recovery,
     size_gate=[rejects(square(.016, 15.), 'cube', .010), rejects(square(.010, 15.), 'cube', .016)],
     counts={k: sum(p['category'] == k for p in items) for k in ('screw', 'cube', 'vial', 'cap')},
     groups=sorted({p['group'] for p in items}),
-    destinations={p['prim']: p['place_xy'] for p in items},
-    unwalled=sorted(B.NO_WALLS))))
+    destinations={p['prim']: dict(xy=p['place_xy'], bin=p.get('bin'), group=p['group'])
+                  for p in items},
+    bins=dict(names=sorted(B.REAL_BINS), outer=B.BIN_OUTER, height=B.BIN_HEIGHT,
+              pocket=B.BIN_POCKET, depth=B.BIN_DEPTH,
+              boxes=sum(1 for g, *_ in B.walls() if g.startswith('bin_')),
+              centre_in=B.in_bin([.16, -.36, C.TABLE_TOP_Z+C.SURFACE_DZ+B.BIN_FLOOR+.005], 'yellow'),
+              wall_out=B.in_bin([.16+.02, -.36, C.TABLE_TOP_Z+C.SURFACE_DZ+B.BIN_FLOOR+.005], 'yellow'),
+              on_rim_out=B.in_bin([.16, -.36, C.TABLE_TOP_Z+C.SURFACE_DZ+B.BIN_HEIGHT+.008], 'yellow'),
+              release_z=B.release_tip_height()))))
 '''
 
 
@@ -119,10 +126,34 @@ class LabObjectTests(unittest.TestCase):
         self.assertLess(r['max_step_deg'], 2.)
         self.assertGreater(r['lowest_mm'], 50.)  # failure mid-carry: stays high
 
-    def test_destinations_are_distinct(self):
-        slots = [tuple(xy) for xy in self.data['destinations'].values()]
-        self.assertEqual(len(slots), len(set(slots)))
-        self.assertEqual(self.data['unwalled'], ['cube_large', 'screw'])
+    def test_cad_bin_geometry(self):
+        b = self.data['bins']
+        self.assertEqual((b['outer'], b['height'], b['pocket'], b['depth']), (.050, .055, .035, .025))
+        self.assertEqual(b['boxes'], 5*len(b['names']))  # base + 4 walls each
+        self.assertTrue(b['centre_in'])
+        self.assertFalse(b['wall_out'])
+        self.assertFalse(b['on_rim_out'])
+        self.assertGreater(b['release_z'], b['height'])  # fingers stay above the rim
+
+    def test_every_object_that_fits_goes_into_a_bin(self):
+        dest = self.data['destinations']
+        for prim, d in dest.items():
+            with self.subTest(prim=prim):
+                if 'Vial' in prim:
+                    self.assertIsNone(d['bin'])  # 203 mm vial does not fit a 35 mm pocket
+                else:
+                    self.assertIsNotNone(d['bin'])
+        self.assertEqual(dest['/World/SortCube6']['bin'], 'blue')  # 16 mm blue cube
+        caps = [d['bin'] for prim, d in dest.items() if 'Cap' in prim]
+        self.assertEqual(len(caps), len(set(caps)))  # one cap per pocket
+        vials = [tuple(d['xy']) for prim, d in dest.items() if 'Vial' in prim]
+        self.assertEqual(len(vials), len(set(vials)))
+
+    def test_objects_fit_the_pocket(self):
+        pocket = self.data['bins']['pocket']
+        self.assertLess(self.data['screw'][0], pocket)
+        self.assertLess(self.data['cap'][0], pocket)
+        self.assertLess(max(self.data['cube_edges'])*2**.5, pocket)
 
 
 if __name__ == '__main__':

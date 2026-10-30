@@ -124,6 +124,31 @@ FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced
 FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced.py
 ```
 
+## Real bins (step 3)
+
+Destinations now use the cell's real bins (organizer CAD: 50 x 50 mm outside,
+55 mm tall, 35 x 35 mm pocket 25 mm deep), built as a solid base plus four walls:
+
+| Bin | Centre (m) | Receives |
+|---|---|---|
+| yellow | (0.16, -0.36) | 2 yellow 10 mm cubes |
+| red | (0.26, -0.36) | 2 red 10 mm cubes |
+| blue | (0.36, -0.36) | 2 blue 10 mm cubes + the 16 mm cube |
+| screw | (0.13, -0.48) | 2 M6 screws |
+| cap_a, cap_b | (0.38, 0.33), (0.46, 0.30) | 1 cap each (Ø31.75 flange in a 35 mm pocket) |
+
+Vials (203 mm) do not fit a pocket and keep the walled vial tray. The gripper
+cannot reach into a 35 mm pocket (open fingers ~49 mm across), so it releases
+with the fingertips 12 mm above the rim; the object drops ~30 mm to the pocket
+floor. A binned object counts as placed when it rests anywhere inside the right
+pocket, and later scans skip it (bin walls can hide it; the bin is the obstacle).
+`SORT_BINS=0` restores the earlier floor areas.
+
+Host checks: all 13 objects plan into their bins clear of all bins and walls;
+fingers stay 12 mm and held objects at least 7 mm above the rim at release; the
+parked arm stays at least 80 mm clear of every bin for the scan. Not yet run
+in Isaac: whether every drop lands in its pocket (caps have 1.6 mm per side).
+
 ## Recovery after a drop or miss
 
 A failed pick no longer ends the run. If an object drops, never lifts, is

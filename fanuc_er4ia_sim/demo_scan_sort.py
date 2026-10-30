@@ -26,6 +26,8 @@ def inventory():
             p['color']=C.SORT_CUBES[index][2] if kind=='cube' else None
             p['group']=('cube_large' if p['size']!=C.CUBE_EDGE else 'cube_'+p['color']) if kind=='cube' else kind
             p['place_xy']=list(SLOTS[p['group']][used[p['group']]])
+            p['bin']=bins.bin_for(p['group'],used[p['group']])
+            if p['bin']: p['place_z']=C.SURFACE_DZ+bins.release_tip_height()
             used[p['group']]+=1;items.append(p)
     return items
 
@@ -182,8 +184,9 @@ def main():
     items=inventory()
     for i,pick in enumerate(items):
         # Earlier objects are already in their destinations; later ones are still out.
+        # Objects dropped into a bin are covered by the bin's own walls.
         obstacles=[dict(p,xy=p['place_xy'],scan_yaw_deg=0.) if j<i else p
-                   for j,p in enumerate(items) if j!=i]
+                   for j,p in enumerate(items) if j!=i and not (j<i and p.get('bin'))]
         plan=plan_any(pick,previous,obstacles)
         previous=plan[1][-1][1][-1][0].copy()
         plans.append(plan)
@@ -302,8 +305,10 @@ def main():
 
         while pending:
             number+=1
-            # Objects given up on may lie in poses the scan cannot read; leave them out.
-            active=[p for p in items if p['prim'] not in abandoned]
+            # Leave out objects given up on (poses the scan may not read) and objects
+            # already dropped into a bin (walls can hide them; the bin is the obstacle).
+            binned={p['prim'] for p in executed if p.get('bin')}
+            active=[p for p in items if p['prim'] not in abandoned and p['prim'] not in binned]
             def attempt(template):
                 observations=scanner.stable(active,template,tick,current_q)
                 snapshot=[from_scan(p,observations[p['prim']]) for p in active]
