@@ -263,8 +263,8 @@ def init_physics(stage):
     m = UsdPhysics.MaterialAPI.Apply(
         UsdGeom.Scope.Define(stage, PHYS_MAT_PATH).GetPrim()
     )
-    m.CreateStaticFrictionAttr().Set(0.9)
-    m.CreateDynamicFrictionAttr().Set(0.8)
+    m.CreateStaticFrictionAttr().Set(C.OBJECT_STATIC_FRIC)
+    m.CreateDynamicFrictionAttr().Set(C.OBJECT_DYNAMIC_FRIC)
     m.CreateRestitutionAttr().Set(0.05)
 
     t = UsdPhysics.MaterialAPI.Apply(

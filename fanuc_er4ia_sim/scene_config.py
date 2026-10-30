@@ -319,6 +319,9 @@ if FINGER_SET == "dual_v2":
     VIAL_RADIUS = 0.02718 / 2
     VIAL_LENGTH = 0.203
 VIAL_MASS = 0.020
+# Shared object/table physics material (cell.init_physics). Benchmarks vary these.
+OBJECT_STATIC_FRIC = 0.9
+OBJECT_DYNAMIC_FRIC = 0.8
 # PhysX has no rolling resistance: a lying vial nudged at spawn kept rolling
 # ~1 mm/s and moved after it was scanned. Angular damping (1/s) stands in for
 # the real vial's rolling resistance on the mat; a roll dies out in ~1 s.

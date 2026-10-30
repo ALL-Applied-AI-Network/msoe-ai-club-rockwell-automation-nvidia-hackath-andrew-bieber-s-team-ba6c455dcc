@@ -2,6 +2,7 @@
 Place beside demo_scan_sort.py; run using the Isaac Python environment.
 Only initial scene configuration changes. Dynamic objects may still roll.
 """
+import argparse
 import os
 import runpy
 import sys
@@ -38,7 +39,26 @@ def main():
     if not target.is_file():
         raise SystemExit('Put this launcher beside your existing demo_scan_sort.py')
     sys.path.insert(0, str(root))
-    configure()
+    # Benchmark options are handled here; everything else goes to demo_scan_sort.
+    bench = argparse.ArgumentParser(add_help=False)
+    bench.add_argument('--layout-seed', type=int,
+                       help='Random planner-checked layout (benchmark); default: fixed layout')
+    bench.add_argument('--physics-seed', type=int,
+                       help='Scale object friction and per-type mass by U[0.8, 1.2]')
+    options, rest = bench.parse_known_args(sys.argv[1:])
+    C = configure()
+    info = {}
+    if options.layout_seed is not None:
+        import bench_layout as L
+        attempt, layout = L.valid_layout(C, options.layout_seed)
+        info.update(layout_seed=options.layout_seed, layout_attempt=attempt, layout=layout)
+        print(f'[layout] Random layout: seed {options.layout_seed}, attempt {attempt}', flush=True)
+    if options.physics_seed is not None:
+        import bench_layout as L
+        info.update(physics_seed=options.physics_seed, physics=L.apply_physics(C, options.physics_seed))
+        print(f"[layout] Physics variation: {info['physics']}", flush=True)
+    C.BENCHMARK_INFO = info or None
+    sys.argv[1:] = rest
     print('[layout] Separated layout: 2 M6 screws, 6 x 10 mm + 1 x 16 mm cubes, 2 vials, 2 caps', flush=True)
     print('[layout] Existing scans, motion planning and collision gates remain active', flush=True)
     sys.argv[0] = str(target)

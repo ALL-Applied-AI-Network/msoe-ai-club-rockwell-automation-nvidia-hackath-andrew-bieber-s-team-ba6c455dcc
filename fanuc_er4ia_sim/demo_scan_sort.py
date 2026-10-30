@@ -171,6 +171,8 @@ def main():
                         help='Save RGB PNG and mask NPZ diagnostics; JSON is always retained')
     parser.add_argument('--check-only',action='store_true')
     parser.add_argument('--exit-on-finish',action='store_true')
+    parser.add_argument('--run-dir',type=Path,
+                        help='Write this run here (default runs/scan_sort_<time>)')
     parser.add_argument('--start-delay',type=float,default=4.,
                         help='Seconds for objects to settle before the first scan')
     parser.add_argument('--verify',choices=('camera','sim'),default='camera',
@@ -205,9 +207,10 @@ def main():
     if args.check_only:
         print('[sort] Host checks passed; physics and full-arm collisions remain unverified.',flush=True)
         return 0
-    directory=Path(__file__).resolve().parent/'runs'/('scan_sort_'+datetime.now().strftime('%Y%m%d_%H%M%S_%f'))
-    directory.mkdir(parents=True)
+    directory=args.run_dir or Path(__file__).resolve().parent/'runs'/('scan_sort_'+datetime.now().strftime('%Y%m%d_%H%M%S_%f'))
+    directory.mkdir(parents=True,exist_ok=True)
     report=dict(test='continuous_synthetic_camera_sort',perception_used=True,
+                benchmark=getattr(C,'BENCHMARK_INFO',None),
                 classification_source='simulator semantic labels',pose_source='rendered mask fit',complete=False,error=None,objects=[],
                 expected_objects=len(plans),final_audit=[],destinations=SLOTS,
                 performance=dict(viewport_fps=0 if args.headless else args.viewport_fps,
