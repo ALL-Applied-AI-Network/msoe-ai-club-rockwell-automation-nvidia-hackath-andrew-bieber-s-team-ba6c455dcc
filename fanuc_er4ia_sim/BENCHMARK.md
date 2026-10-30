@@ -17,15 +17,20 @@ The seed fixes both, so any trial can be replayed exactly.
 From `fanuc_er4ia_sim/`, with any Python 3 (the runner starts Isaac itself):
 
 ```bash
-# Pilot: 3 trials, to measure time per trial and catch problems (~30 min)
-python3 run_benchmark.py --trials 3 --out runs/bench_pilot
+# Pilot: 3 trials, to measure time per trial and catch problems
+python3 run_benchmark.py --gui --trials 3 --out runs/bench_pilot
 python3 bench_summary.py runs/bench_pilot
 
-# Main benchmark, unattended (~8-9 min per trial; 50 trials ~7.5 h)
-nohup python3 run_benchmark.py --trials 50 > runs/benchmark.log 2>&1 &
+# Main benchmark, unattended (from a desktop terminal; trial count to fit the session)
+nohup python3 run_benchmark.py --gui --trials 30 > runs/benchmark.log 2>&1 &
 tail -f runs/benchmark.log
 python3 bench_summary.py runs/benchmark
 ```
+
+Use `--gui` (a small 10 fps viewport). Headless trials on Rosie's T4 ran out of
+GPU memory after about 3 picks, three times in a row, even with anti-aliasing
+off; every viewport run has finished. For a crashed trial the runner prints the
+GPU memory after each pick and the first error from its `console.log`.
 
 Results are saved after every trial (`runs/benchmark/results.jsonl`); rerunning
 the same command skips finished seeds, so a session that ends early loses at

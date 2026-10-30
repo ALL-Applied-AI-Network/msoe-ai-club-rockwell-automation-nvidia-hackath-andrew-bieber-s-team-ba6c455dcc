@@ -47,6 +47,22 @@ def summarize(seed, report, status, wall_s, returncode):
                 error=report.get('error'), objects=objects)
 
 
+def explain_crash(console):
+    """Print the per-pick GPU memory readings and the first fatal error from a trial log."""
+    try:
+        lines = console.read_text(errors='replace').splitlines()
+    except OSError:
+        return
+    memory = [l.split('GPU memory in use')[-1].strip() for l in lines if 'GPU memory in use' in l]
+    print(f"[bench]   GPU memory after each pick: {', '.join(memory) or 'none logged'}", flush=True)
+    keys = ('out of gpu memory', 'out_of_device_memory', 'fatal', 'traceback', 'error')
+    first = next((l for l in lines if any(k in l.lower() for k in keys[:3])), None)
+    first = first or next((l for l in lines if any(k in l.lower() for k in keys[3:])), None)
+    if first:
+        print(f'[bench]   first error: {first.strip()[:200]}', flush=True)
+    print(f'[bench]   last line: {lines[-1].strip()[:200] if lines else "(empty log)"}', flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--trials', type=int, default=50)
@@ -71,6 +87,13 @@ def main():
                 done[row['seed']] = row['status']
     seeds = [s for s in range(args.start_seed, args.start_seed+args.trials)
              if s not in done or (args.retry_crashed and done[s] in ('crash', 'timeout', 'error'))]
+    try:
+        commit = subprocess.run(['git', 'log', '--oneline', '-1'], cwd=HERE, capture_output=True,
+                                text=True, timeout=10).stdout.strip()
+    except Exception:
+        commit = 'unknown'
+    print(f"[bench] code: {commit or 'unknown'}; mode: {'viewport 10 fps' if args.gui else 'headless'}",
+          flush=True)
     print(f'[bench] {len(seeds)} trials to run ({args.trials-len(seeds)} already recorded) -> {results}',
           flush=True)
     durations = []
@@ -111,6 +134,8 @@ def main():
         print(f"[bench] trial {number}/{len(seeds)} seed {seed}: {status.upper()} "
               f"{row['placed']}/{row['expected']} placed, {len(row['recoveries'])} recoveries, "
               f"{wall/60:.1f} min; about {left/3600:.1f} h left", flush=True)
+        if status in ('crash', 'timeout', 'error'):
+            explain_crash(run_dir/'console.log')
     print(f'[bench] Done. Summary: python3 {HERE/"bench_summary.py"} {args.out}', flush=True)
 
 
