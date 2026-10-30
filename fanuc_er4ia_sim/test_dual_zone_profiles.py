@@ -110,7 +110,7 @@ class DualZoneProfileTests(unittest.TestCase):
                 self.assertGreaterEqual(value, 0.)
                 self.assertLessEqual(value, .006)
         self.assertAlmostEqual(revised['fit']['screw'], .0001)
-        self.assertAlmostEqual(revised['fit']['vial'], .00399)
+        self.assertAlmostEqual(revised['fit']['vial'], .00359)
         self.assertAlmostEqual(revised['cube16'], .0051)
         self.assertEqual(revised['routed'], revised['fit'])
         self.assertLess(revised['higher_cap'], revised['fit']['cap'])

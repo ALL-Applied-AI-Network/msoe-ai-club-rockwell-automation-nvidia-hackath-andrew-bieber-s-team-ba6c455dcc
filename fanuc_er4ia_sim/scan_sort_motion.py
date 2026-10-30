@@ -45,7 +45,8 @@ def segments(pick, home):
             # trajectory uses two simulation seconds per duration unit.
             # Slower close/dwell lets grip force build before the vial is loaded;
             # a slower lift halves peak acceleration on the long, off-centre vial.
-            duration = {'close':1.0, 'dwell':1.0, 'lift':1.6, 'carry':3.0,
+            # Carry 10 s (was 6 s): slip began at peak carry acceleration.
+            duration = {'close':1.0, 'dwell':1.0, 'lift':1.6, 'carry':5.0,
                         'lower':1.2, 'release':1.2, 'settle':3.0}.get(name,duration)
         if name == 'home':
             # Return with the wrist in the park orientation so the camera stays clear.

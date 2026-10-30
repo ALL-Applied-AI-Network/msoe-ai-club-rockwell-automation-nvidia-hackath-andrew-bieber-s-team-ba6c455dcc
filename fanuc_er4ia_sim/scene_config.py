@@ -199,9 +199,11 @@ JAW_MAX_FORCE = 180.0
 # Rigid PhysX contacts otherwise give almost no friction against twisting about
 # the pad normal, so a long vial held off-centre pivots out of the fingers.
 GRIP_PATCH_RADIUS = 0.003
-# Pad squeeze for vials: jaw drive stiffness x squeeze = ~24 N per finger,
-# versus ~12 N from the 0.3 mm default. Long vials need the extra twist resistance.
-VIAL_GRIP_SQUEEZE = 0.0006
+# Pad squeeze for vials: jaw drive stiffness x squeeze = ~40 N per finger,
+# versus ~12 N from the 0.3 mm default. At 24 N the end-gripped vial held through
+# the lift but began slipping at peak carry acceleration and never recovered.
+# CHECK against the real SMC MHZL2-16D2 gripping force at the cell's air pressure.
+VIAL_GRIP_SQUEEZE = 0.0010
 
 TOOL_AXIS = (1.0, 0.0, 0.0)
 FINGER_SPREAD_AXIS = (0.0, 1.0, 0.0)
