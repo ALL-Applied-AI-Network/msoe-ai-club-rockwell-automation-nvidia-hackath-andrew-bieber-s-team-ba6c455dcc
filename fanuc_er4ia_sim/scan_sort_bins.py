@@ -81,6 +81,24 @@ WALL_HEIGHT = .008
 WALL_THICK = .003
 
 
+# Drop points inside a cube bin, in fill order (offsets from the bin centre).
+# Releasing every cube over the centre stacked them; the 16 mm cube then sat
+# above the rim. Three corners keep 10, 10 and 16 mm cubes apart in 35 mm.
+# 10 mm cubes at (+9,-9)/(-9,+9) mm clear the walls by 3.5 mm; the 16 mm cube
+# at (+7.5,+7.5) clears them by 2 mm and does not overlap either.
+CUBE_DROP_OFFSETS = [(.009, -.009), (-.009, .009), (.0075, .0075)]
+CUBE_BINS = {'yellow', 'red', 'blue'}
+
+
+def drop_xy(name, k):
+    """Release XY for the k-th object dropped into a bin."""
+    (x, y), _ = REAL_BINS[name]
+    if name in CUBE_BINS:
+        dx, dy = CUBE_DROP_OFFSETS[k % len(CUBE_DROP_OFFSETS)]
+        return (x + dx, y + dy)
+    return (x, y)  # screws and caps: centre (a long screw has no room to offset)
+
+
 def bin_for(group, index):
     """Bin name for the index-th object of a group, or None (floor area)."""
     names = GROUP_BINS.get(group) if USE_BINS else None
@@ -93,12 +111,14 @@ def release_tip_height():
 
 
 def in_bin(centre, name, margin=0.0):
-    """True if an object centre (robot-base XY, world Z) rests inside a bin pocket."""
+    """True if an object centre (robot-base XY, world Z) rests inside a bin pocket.
+    Objects resting on others may poke above the rim: allow the centre up to
+    10 mm above it (nothing can rest there unless it is supported in the pocket)."""
     (x, y), _ = REAL_BINS[name]
     half = BIN_POCKET/2 - margin
     floor = C.TABLE_TOP_Z + C.SURFACE_DZ + BIN_FLOOR
     return bool(abs(centre[0]-x) < half and abs(centre[1]-y) < half
-                and floor - 0.002 < centre[2] < floor + BIN_DEPTH)
+                and floor - 0.002 < centre[2] < floor + BIN_DEPTH + 0.010)
 
 
 def bin_boxes(name):

@@ -73,6 +73,7 @@ def segments(pick, home):
 
 def inventory():
     used = Counter()
+    in_bin = Counter()
     result = []
     for kind, count in (("screw",len(C.SORT_SCREWS)), ("cube",len(C.SORT_CUBES)),
                         ("vial",len(C.SORT_VIALS)), ("cap",len(C.SORT_CAPS))):
@@ -85,6 +86,8 @@ def inventory():
             pick["place_xy"] = list(SLOTS[group][used[group]])
             pick["bin"] = BINS_MOD.bin_for(group, used[group])
             if pick["bin"]:
+                pick["place_xy"] = list(BINS_MOD.drop_xy(pick["bin"], in_bin[pick["bin"]]))
+                in_bin[pick["bin"]] += 1
                 pick["place_z"] = C.SURFACE_DZ + BINS_MOD.release_tip_height()
             used[group] += 1
             result.append(pick)

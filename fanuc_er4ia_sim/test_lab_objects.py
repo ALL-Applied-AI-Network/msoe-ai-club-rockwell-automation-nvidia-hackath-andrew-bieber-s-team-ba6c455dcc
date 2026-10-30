@@ -77,8 +77,10 @@ print(json.dumps(dict(recovery=recovery,
               boxes=sum(1 for g, *_ in B.walls() if g.startswith('bin_')),
               centre_in=B.in_bin([.16, -.36, C.TABLE_TOP_Z+C.SURFACE_DZ+B.BIN_FLOOR+.005], 'yellow'),
               wall_out=B.in_bin([.16+.02, -.36, C.TABLE_TOP_Z+C.SURFACE_DZ+B.BIN_FLOOR+.005], 'yellow'),
-              on_rim_out=B.in_bin([.16, -.36, C.TABLE_TOP_Z+C.SURFACE_DZ+B.BIN_HEIGHT+.008], 'yellow'),
-              release_z=B.release_tip_height()))))
+              on_rim_out=B.in_bin([.16, -.36, C.TABLE_TOP_Z+C.SURFACE_DZ+B.BIN_HEIGHT+.015], 'yellow'),
+              release_z=B.release_tip_height(),
+              stacked_in=B.in_bin([.36, -.36, C.TABLE_TOP_Z+C.SURFACE_DZ+.058], 'blue'),
+              blue_drops=[list(B.drop_xy('blue', k)) for k in range(3)]))))
 '''
 
 
@@ -134,6 +136,17 @@ class LabObjectTests(unittest.TestCase):
         self.assertFalse(b['wall_out'])
         self.assertFalse(b['on_rim_out'])
         self.assertGreater(b['release_z'], b['height'])  # fingers stay above the rim
+        self.assertTrue(b['stacked_in'])  # 16 mm cube resting on two cubes still counts
+
+    def test_cube_drops_do_not_overlap_and_clear_the_walls(self):
+        (a, b, c), half = self.data['bins']['blue_drops'], self.data['bins']['pocket']/2
+        centre = (.36, -.36)
+        for xy, edge in ((a, .010), (b, .010), (c, .016)):
+            for k in (0, 1):
+                self.assertLessEqual(abs(xy[k]-centre[k])+edge/2, half-.0015)
+        def apart(p, q, e1, e2):
+            return any(abs(p[k]-q[k]) >= (e1+e2)/2 for k in (0, 1))
+        self.assertTrue(apart(a, b, .010, .010) and apart(a, c, .010, .016) and apart(b, c, .010, .016))
 
     def test_every_object_that_fits_goes_into_a_bin(self):
         dest = self.data['destinations']

@@ -18,7 +18,7 @@ import scan_sort_bins as bins
 SLOTS=bins.SLOTS
 
 def inventory():
-    used=Counter();items=[]
+    used=Counter();in_bin=Counter();items=[]
     for kind,count in [('screw',len(C.SORT_SCREWS)),('cube',len(C.SORT_CUBES)),
                        ('vial',len(C.SORT_VIALS)),('cap',len(C.SORT_CAPS))]:
         for index in range(count):
@@ -27,7 +27,9 @@ def inventory():
             p['group']=('cube_large' if p['size']!=C.CUBE_EDGE else 'cube_'+p['color']) if kind=='cube' else kind
             p['place_xy']=list(SLOTS[p['group']][used[p['group']]])
             p['bin']=bins.bin_for(p['group'],used[p['group']])
-            if p['bin']: p['place_z']=C.SURFACE_DZ+bins.release_tip_height()
+            if p['bin']:
+                p['place_xy']=list(bins.drop_xy(p['bin'],in_bin[p['bin']])); in_bin[p['bin']]+=1
+                p['place_z']=C.SURFACE_DZ+bins.release_tip_height()
             used[p['group']]+=1;items.append(p)
     return items
 
@@ -273,6 +275,7 @@ def main():
                   for _,_,pick,_ in plans}
         items=[p for _,_,p,_ in plans]
         plans.clear()
+        sort_started=time.monotonic()
         executed=[]
         park_q=initial.copy()  # the scan pose every pick starts from and returns to
         current_q=park_q.copy()
@@ -330,10 +333,19 @@ def main():
                 text=str(exc)
                 culprits=[p for p in pending if failures_by_object[p['prim']] and p['prim'] in text]
                 if not culprits: raise
-                for p in culprits: recover(p['prim'],p['category'],'not found by the rescan: '+text[:160])
+                for p in culprits:
+                    centre=D.centre(*handles[p['prim']].get_world_pose(),p['category'],p.get('size'))
+                    if p.get('bin') and bins.in_bin(centre,p['bin']):
+                        # Already resting in its own bin (fingers cannot reach in): done.
+                        print(f"[recover] {p['prim']} is already in the {p['bin']} bin; counting it as placed",flush=True)
+                        executed.append(p); pending=[q for q in pending if q['prim']!=p['prim']]
+                    else:
+                        recover(p['prim'],p['category'],'not found by the rescan: '+text[:160])
                 continue
             pick=plan[2]
-            print(f"\n[scan] OBJECT {number}/{object_count}: {pick['group']} {pick['index']}",flush=True)
+            retry=failures_by_object[pick['prim']]
+            print(f"\n[scan] OBJECT {len(executed)+1}/{object_count}: {pick['group']} {pick['index']}"
+                  +(f" (retry {retry})" if retry else ""),flush=True)
             save()
             print(f"[scan] Fresh target XY={pick['xy']}, yaw={pick['scan_yaw_deg']:.2f} deg",flush=True)
             def phase_guard(phase):
@@ -357,11 +369,14 @@ def main():
                         raise RuntimeError(f'Object moved after scan (before {phase}): true centre '
                             f'{np.round(centre[:2],4).tolist()} vs scanned {np.round(pick["xy"],4).tolist()}, '
                             f'off by dx={delta[0]:.2f} dy={delta[1]:.2f} mm; rescanning')
+            started=time.monotonic()
             item=run_pick(app,world,arm,arm_idx,tick,measured,plan,
                           directory/f"{number:02d}_{pick['category']}_{pick['index']}.json",phase_hook=phase_guard,
                           force_drop=args.force_drop and number==1)
             item['scan']=observations[pick['prim']]
             item['attempt']=failures_by_object[pick['prim']]+1
+            item['cycle_s']=round(time.monotonic()-started,1)
+            print(f"[sort] {pick['prim']} pick-and-place took {item['cycle_s']:.0f} s",flush=True)
             report['objects'].append(item); save()
             if not item['complete']:
                 # Simulator pose checks only TRIGGER the retry; the new grasp target
@@ -389,6 +404,7 @@ def main():
         report['final_audit']=[dict(object=p['category'],index=p['index'],group=p['group'],
             **pose_metrics(handles[p['prim']],p,baseline[p['prim']][2])) for p in executed]
         report['placed_objects']=len(executed)
+        report['sort_seconds']=round(time.monotonic()-sort_started,1)
         report['complete']=bool(len(executed)==object_count and not report['failed_objects']
             and all(r['verified'] for r in report['final_audit']))
     except Exception as exc:
@@ -401,6 +417,10 @@ def main():
               f"{len(report.get('recoveries',[]))} recoveries",flush=True)
         if report.get('failed_objects'):
             print(f"[sort] Gave up on: {', '.join(report['failed_objects'])}",flush=True)
+        if report.get('sort_seconds'):
+            m,s=divmod(int(report['sort_seconds']),60)
+            print(f"[sort] Sorting time: {m} min {s} s (after start-up), "
+                  f"{report['sort_seconds']/max(1,report['placed_objects']):.0f} s per placed object",flush=True)
         print(f'[sort] Report: {path}',flush=True)
         try:
             if world is not None and app.is_running(): world.pause()
