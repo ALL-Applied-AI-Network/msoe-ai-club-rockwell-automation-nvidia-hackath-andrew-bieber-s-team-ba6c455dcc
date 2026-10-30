@@ -76,7 +76,10 @@ def jaw_target(category, measured_width=None):
 
 def squeeze(category):
     """Commanded pad overlap; the jaw drive turns it into grip force."""
-    return C.VIAL_GRIP_SQUEEZE if category == 'vial' else 0.0003
+    if category == 'vial': return C.VIAL_GRIP_SQUEEZE
+    # Cap: flat pads touch the round tapered plug at a point; ~24 N per finger.
+    if category == 'cap': return 0.0006
+    return 0.0003
 
 def vial_hold():
     """Static check that the grip resists the vial's weight, slip and pivot.

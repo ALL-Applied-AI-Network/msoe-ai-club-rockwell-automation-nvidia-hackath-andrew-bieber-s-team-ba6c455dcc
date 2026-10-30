@@ -39,9 +39,17 @@ COLORS = {"cube_yellow": (0.95,0.8,0.05), "cube_red": (0.9,0.12,0.1),
           "screw": (0.35,0.35,0.38), "cube_large": (0.2,0.5,0.9)}
 
 
+# Peak carry acceleration limit (m/s^2). A cap carried 0.6 m in 2.8 s
+# (~0.46 m/s^2) tipped out of its point-contact grip.
+CARRY_MAX_ACCEL = 0.10
+
+
 def segments(pick, home):
     for phase in original_segments(pick, home):
         name,p0,p1,duration,j0,j1,direction = phase
+        if pick['category'] == 'cap':
+            # Pads touch the round plug at a point: gentle close, dwell and lift.
+            duration = {'close':1.0, 'dwell':1.0, 'lift':1.6}.get(name,duration)
         if pick['category'] == 'vial':
             # trajectory uses two simulation seconds per duration unit.
             # Slower close/dwell lets grip force build before the vial is loaded;
@@ -49,6 +57,11 @@ def segments(pick, home):
             # Carry 10 s (was 6 s): slip began at peak carry acceleration.
             duration = {'close':1.0, 'dwell':1.0, 'lift':1.6, 'carry':5.0,
                         'lower':1.2, 'release':1.2, 'settle':3.0}.get(name,duration)
+        if name == 'carry':
+            # Smoothstep peak acceleration is 6 D / T^2; stretch T to respect the limit.
+            # (Two simulation seconds per duration unit.)
+            distance = float(np.linalg.norm(np.asarray(p1)-np.asarray(p0)))
+            duration = max(duration, np.sqrt(6*distance/CARRY_MAX_ACCEL)/2)
         if name == 'home':
             # Return with the wrist in the park orientation so the camera stays clear.
             direction = np.array(PARK_SPREAD)
