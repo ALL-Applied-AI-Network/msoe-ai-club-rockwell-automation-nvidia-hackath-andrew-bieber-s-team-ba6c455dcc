@@ -159,20 +159,22 @@ class Scanner:
         if errors: raise RuntimeError('Scan rejected: '+json.dumps(errors))
         return output
 
-    def stable(self,required,target,tick,q,timeout=20.):
-        """Require 2 s of observations spanning <=0.8 mm and <=1 degree."""
+    def stable(self,required,target,tick,q,timeout=20.,samples=5,gap_ticks=15):
+        """Require `samples` observations, gap_ticks/30 s apart, spanning <=0.8 mm
+        and <=1 degree. Default 5 x 0.5 s; the normal speed profile uses 3 x 1/3 s
+        (objects no longer sleep, and the pre-grasp guard still catches a move)."""
         history=[]
-        for attempt in range(int(timeout*2)+1):
-            for _ in range(15): tick(q,.006)
+        for attempt in range(int(timeout*30/gap_ticks)+1):
+            for _ in range(gap_ticks): tick(q,.006)
             observations=self.capture(required,save=(attempt%4==0))
-            history.append(observations[target['prim']]);history=history[-5:]
-            if len(history)==5:
+            history.append(observations[target['prim']]);history=history[-samples:]
+            if len(history)==samples:
                 xy=np.asarray([o['xy'] for o in history])
                 travel=float(np.max(np.linalg.norm(xy[:,None,:]-xy[None,:,:],axis=2)))
                 rotation=max(angle_error(a['yaw_deg'],b['yaw_deg'],target['category']) for a in history for b in history)
                 if travel<=.0008 and rotation<=1.:
                     return observations
-            print(f"[scan] Waiting for {target['prim']} to settle ({attempt/2:.1f}s)",flush=True)
+            print(f"[scan] Waiting for {target['prim']} to settle ({attempt*gap_ticks/30:.1f}s)",flush=True)
         raise RuntimeError(f"{target['prim']} still moving after {timeout:g}s; no grasp attempted")
 
     def close(self):

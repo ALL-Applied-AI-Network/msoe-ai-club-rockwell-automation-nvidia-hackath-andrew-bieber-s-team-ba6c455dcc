@@ -171,7 +171,10 @@ def main():
                         help='Save RGB PNG and mask NPZ diagnostics; JSON is always retained')
     parser.add_argument('--check-only',action='store_true')
     parser.add_argument('--exit-on-finish',action='store_true')
-    parser.add_argument('--start-delay',type=float,default=10.)
+    parser.add_argument('--start-delay',type=float,default=4.,
+                        help='Seconds for objects to settle before the first scan')
+    parser.add_argument('--careful',action='store_true',
+                        help='Earlier, slower timing (free moves, waits, carries, scans)')
     parser.add_argument('--force-drop',action='store_true',
                         help='Deliberately drop the first object mid-carry to demonstrate recovery')
     parser.add_argument('--max-recoveries',type=int,default=3,
@@ -180,6 +183,7 @@ def main():
     parser.add_argument('--only',choices=('screw','cube','vial','cap'),
                         help='Pick only this category (quick test); other objects stay as obstacles')
     args=parser.parse_args()
+    motion.CAREFUL=args.careful
     if not np.isfinite(args.start_delay) or args.start_delay<0:
         parser.error('--start-delay must be finite and nonnegative')
     plans=[]; previous=park_pose()
@@ -255,6 +259,7 @@ def main():
             return values
         tick_count=0
         render_every=30//args.viewport_fps
+        wall_started=time.monotonic()
         def tick(q,jaw):
             nonlocal tick_count
             if not app.is_running() or not world.is_playing(): raise RuntimeError('Sorting interrupted')
@@ -313,7 +318,8 @@ def main():
             binned={p['prim'] for p in executed if p.get('bin')}
             active=[p for p in items if p['prim'] not in abandoned and p['prim'] not in binned]
             def attempt(template):
-                observations=scanner.stable(active,template,tick,current_q)
+                observations=scanner.stable(active,template,tick,current_q,
+                    **({} if args.careful else dict(samples=3,gap_ticks=10)))
                 snapshot=[from_scan(p,observations[p['prim']]) for p in active]
                 pick=next(p for p in snapshot if p['prim']==template['prim'])
                 obstacles=[p for p in snapshot if p['prim']!=pick['prim']]
@@ -405,6 +411,11 @@ def main():
             **pose_metrics(handles[p['prim']],p,baseline[p['prim']][2])) for p in executed]
         report['placed_objects']=len(executed)
         report['sort_seconds']=round(time.monotonic()-sort_started,1)
+        sim_s=tick_count/30
+        report['performance'].update(sim_seconds=round(sim_s,1),
+            wall_seconds=round(time.monotonic()-wall_started,1),
+            wall_per_sim_second=round((time.monotonic()-wall_started)/max(sim_s,1e-9),2),
+            speed_profile='careful' if args.careful else 'normal')
         report['complete']=bool(len(executed)==object_count and not report['failed_objects']
             and all(r['verified'] for r in report['final_audit']))
     except Exception as exc:
@@ -421,6 +432,11 @@ def main():
             m,s=divmod(int(report['sort_seconds']),60)
             print(f"[sort] Sorting time: {m} min {s} s (after start-up), "
                   f"{report['sort_seconds']/max(1,report['placed_objects']):.0f} s per placed object",flush=True)
+        perf=report.get('performance',{})
+        if perf.get('wall_per_sim_second'):
+            print(f"[sort] {perf['sim_seconds']:.0f} s simulated in {perf['wall_seconds']:.0f} s "
+                  f"({perf['wall_per_sim_second']:.2f} wall s per sim s, {args.physics_hz} Hz physics, "
+                  f"{'headless' if args.headless else 'viewport %d fps' % args.viewport_fps})",flush=True)
         print(f'[sort] Report: {path}',flush=True)
         try:
             if world is not None and app.is_running(): world.pause()

@@ -41,13 +41,25 @@ COLORS = {"cube_yellow": (0.95,0.8,0.05), "cube_red": (0.9,0.12,0.1),
 
 
 # Peak carry acceleration limit (m/s^2). A cap carried 0.6 m in 2.8 s
-# (~0.46 m/s^2) tipped out of its point-contact grip.
-CARRY_MAX_ACCEL = 0.10
+# (~0.46 m/s^2) tipped out of its point-contact grip; flat-face cube and
+# screw grips held at the starter's faster carries.
+CARRY_MAX_ACCEL = {'cap': 0.10, 'vial': 0.10, 'cube': 0.30, 'screw': 0.30}
+
+# Speed profile. 'normal' trims time where nothing is held or nothing can slip:
+# free-space moves at 60%, shorter dwell/release/settle. 'careful' keeps the
+# earlier (slower) timing; demo_scan_sort --careful selects it.
+CAREFUL = False
+FREE_MOVES = ('approach', 'retreat', 'home')
 
 
 def segments(pick, home):
     for phase in original_segments(pick, home):
         name,p0,p1,duration,j0,j1,direction = phase
+        if not CAREFUL:
+            if name in FREE_MOVES:
+                duration *= 0.6  # empty gripper (retreat starts after release)
+            elif pick['category'] in ('cube', 'screw'):
+                duration = {'dwell':0.25, 'release':0.3, 'settle':0.4}.get(name, duration)
         if pick['category'] == 'cap':
             # Pads touch the round plug at a point: gentle close, dwell and lift.
             duration = {'close':1.0, 'dwell':1.0, 'lift':1.6}.get(name,duration)
@@ -57,14 +69,17 @@ def segments(pick, home):
             # a slower lift halves peak acceleration on the long, off-centre vial.
             # Carry 10 s (was 6 s): slip began at peak carry acceleration.
             duration = {'close':1.0, 'dwell':1.0, 'lift':1.6, 'carry':5.0,
-                        'lower':1.2, 'release':1.2, 'settle':3.0}.get(name,duration)
+                        'lower':1.2, 'release':1.2,
+                        'settle':3.0 if CAREFUL else 1.5}.get(name,duration)
         if name == 'settle' and pick.get('bin'):
-            duration = max(duration, 1.5)  # dropped ~30 mm into the pocket: let it settle
+            # Dropped ~30 mm into the pocket: let it stop bouncing (1 s is ample).
+            duration = 1.5 if CAREFUL else 1.0
         if name == 'carry':
             # Smoothstep peak acceleration is 6 D / T^2; stretch T to respect the limit.
             # (Two simulation seconds per duration unit.)
             distance = float(np.linalg.norm(np.asarray(p1)-np.asarray(p0)))
-            duration = max(duration, np.sqrt(6*distance/CARRY_MAX_ACCEL)/2)
+            limit = 0.10 if CAREFUL else CARRY_MAX_ACCEL.get(pick['category'], 0.10)
+            duration = max(duration, np.sqrt(6*distance/limit)/2)
         if name == 'home':
             # Return with the wrist in the park orientation so the camera stays clear.
             direction = np.array(PARK_SPREAD)

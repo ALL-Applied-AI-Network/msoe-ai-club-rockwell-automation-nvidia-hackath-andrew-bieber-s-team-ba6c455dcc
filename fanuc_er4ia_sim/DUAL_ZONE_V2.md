@@ -149,6 +149,18 @@ fingers stay 12 mm and held objects at least 7 mm above the rim at release; the
 parked arm stays at least 80 mm clear of every bin for the scan. Not yet run
 in Isaac: whether every drop lands in its pocket (caps have 1.6 mm per side).
 
+## Speed profile
+
+Default timing trims time where nothing is held or nothing can slip:
+free-space moves (approach, retreat, home) at 60%; cube/screw carries at up to
+0.3 m/s^2 (caps and vials stay at 0.1); shorter dwell, release and settle
+(bin drop settle 1 s, vial settle 3 s); 3 scan samples 1/3 s apart instead of
+5 samples 1/2 s apart; 4 s start-up wait. Planned simulated time for the
+13-object sort: 6.2 -> 4.5 min. `--careful` restores the earlier timing.
+The run ends with sorting time and wall-clock seconds per simulated second.
+For timing runs that need no video, `--headless` (no viewport) is much faster;
+`--viewport-fps 10` is a middle ground.
+
 ## Recovery after a drop or miss
 
 A failed pick no longer ends the run. If an object drops, never lifts, is
