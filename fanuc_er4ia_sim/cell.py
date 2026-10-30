@@ -912,9 +912,6 @@ def add_sort_objects(stage):
         if yaw_deg != 0.0:
             xf.AddRotateZOp().Set(yaw_deg)
         xf.AddRotateYOp().Set(90.0)
-        # Small roll about the vial's own axis so its faceted collider is not
-        # balanced on an edge; it settles onto a flat face during the start delay.
-        xf.AddRotateZOp(opSuffix="roll").Set(C.VIAL_SPAWN_ROLL_DEG)
 
         vis_path = f"/World/SortVial{i}/Visual"
         add_reference_to_stage(
@@ -934,16 +931,33 @@ def add_sort_objects(stage):
                 bindingStrength=UsdShade.Tokens.strongerThanDescendants,
             )
 
+        # Faceted prism, not UsdGeom.Cylinder: Isaac 6 simulates cylinders as exact
+        # round shapes, which touch a flat pad at ONE point. One point cannot resist
+        # twisting, so the off-centre-gripped vial pivoted ~47 deg out of the grip,
+        # and the round shape rolled freely on the table. Flats sit at VIAL_RADIUS;
+        # a flat faces local +X, which is straight down once the vial is laid flat.
         coll_path = f"/World/SortVial{i}/Collider"
-        coll = UsdGeom.Cylinder.Define(stage, coll_path)
-        coll.CreateAxisAttr("Z")
-        coll.CreateRadiusAttr(C.VIAL_RADIUS)
-        coll.CreateHeightAttr(C.VIAL_LENGTH)
-        UsdGeom.Xformable(coll.GetPrim()).AddTranslateOp().Set(
-            Gf.Vec3d(0, 0, C.VIAL_LENGTH / 2)
+        n = C.VIAL_COLLIDER_SIDES
+        corner = C.VIAL_RADIUS / _math.cos(_math.pi / n)
+        ring = [
+            (corner * _math.cos(2 * _math.pi * (k + 0.5) / n),
+             corner * _math.sin(2 * _math.pi * (k + 0.5) / n))
+            for k in range(n)
+        ]
+        coll = UsdGeom.Mesh.Define(stage, coll_path)
+        coll.CreatePointsAttr(
+            [Gf.Vec3f(x, y, 0.0) for x, y in ring]
+            + [Gf.Vec3f(x, y, C.VIAL_LENGTH) for x, y in ring]
         )
+        faces = [[k, (k + 1) % n, n + (k + 1) % n, n + k] for k in range(n)]
+        faces += [list(range(n - 1, -1, -1)), list(range(n, 2 * n))]
+        coll.CreateFaceVertexCountsAttr([len(f) for f in faces])
+        coll.CreateFaceVertexIndicesAttr([v for f in faces for v in f])
         UsdGeom.Imageable(coll.GetPrim()).CreateVisibilityAttr().Set("invisible")
         UsdPhysics.CollisionAPI.Apply(coll.GetPrim())
+        UsdPhysics.MeshCollisionAPI.Apply(coll.GetPrim()).CreateApproximationAttr().Set(
+            "convexHull"
+        )
         bind_physics_material(coll.GetPrim())
         grip_patch(coll.GetPrim())
         make_dynamic(g.GetPrim(), C.VIAL_MASS, collide_self=False,

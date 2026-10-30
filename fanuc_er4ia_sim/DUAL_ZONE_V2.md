@@ -72,6 +72,13 @@ Vials were dropping or not lifting. Changes:
   `grip_rotation_deg` for lift, carry and lower. These show whether a vial slid,
   pivoted, or was never gripped.
 - `python dual_zone.py` prints the static hold margins (slip and twist).
+- **Faceted vial collider.** Isaac 6 simulates `UsdGeom.Cylinder` as an exact
+  round shape, which touches a flat pad at one point and rolls freely. The vial
+  now uses a 24-sided prism (flats at the real 27.18 mm), so pads grip
+  face-to-face and the vial rests on a flat. With the round collider the vial
+  lifted but pivoted 47° in the grip.
+- **Scan/park and settling fixes.** The scan park pose no longer hides the vial,
+  task objects never sleep, and pick-time handles no longer reset object poses.
 
 Quick vial-only test (other objects stay in the scene as obstacles):
 
