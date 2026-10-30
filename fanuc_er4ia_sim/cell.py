@@ -243,6 +243,16 @@ def small_contact_offsets(prim):
     api.CreateRestOffsetAttr().Set(0.0)
 
 
+def grip_patch(prim):
+    """Give a pad or gripped object a contact patch so PhysX applies
+    torsional friction about the contact normal (see C.GRIP_PATCH_RADIUS)."""
+    from pxr import PhysxSchema
+
+    api = PhysxSchema.PhysxCollisionAPI.Apply(prim)
+    api.CreateTorsionalPatchRadiusAttr().Set(C.GRIP_PATCH_RADIUS)
+    api.CreateMinTorsionalPatchRadiusAttr().Set(C.GRIP_PATCH_RADIUS)
+
+
 def init_physics(stage):
     """One shared physics material for the task objects and the table.
 
@@ -928,6 +938,7 @@ def add_sort_objects(stage):
         UsdGeom.Imageable(coll.GetPrim()).CreateVisibilityAttr().Set("invisible")
         UsdPhysics.CollisionAPI.Apply(coll.GetPrim())
         bind_physics_material(coll.GetPrim())
+        grip_patch(coll.GetPrim())
         make_dynamic(g.GetPrim(), C.VIAL_MASS, collide_self=False)
 
     # ---- caps: lying flat (Z-up disc), origin = bottom face ----
@@ -1532,6 +1543,8 @@ def attach_gripper(stage, jaw=None, articulated=True):
             contact.CreateContactOffsetAttr().Set(0.0002)
             contact.CreateRestOffsetAttr().Set(0.0)
             bind_physics_material(collider, material)
+            if material == SOFT_TIP_MAT_PATH:
+                grip_patch(collider)
         if C.FINGER_SET in ("dual", "dual_v2"):
             # Additional cap rail and root bridge, attached to the same rigid jaw.
             # Local Z is perpendicular to both tool length X and jaw travel Y.
@@ -1547,6 +1560,8 @@ def attach_gripper(stage, jaw=None, articulated=True):
                 contact.CreateContactOffsetAttr().Set(0.0002)
                 contact.CreateRestOffsetAttr().Set(0.0)
                 bind_physics_material(prim, SOFT_TIP_MAT_PATH if soft else PHYS_MAT_PATH)
+                if soft:
+                    grip_patch(prim)
         for number, u in enumerate(C.FINGER_MOUNT_HOLES):
             for face in (-1, 1):
                 cyl(

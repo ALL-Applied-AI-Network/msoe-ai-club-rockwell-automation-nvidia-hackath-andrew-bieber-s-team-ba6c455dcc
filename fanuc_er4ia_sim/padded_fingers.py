@@ -109,7 +109,7 @@ def jaw_for_object(object_type, cap_pick_height=0.005):
     if object_type == "cube":
         width = C.CUBE_EDGE
     elif object_type == "vial":
-        width = 2 * C.VIAL_RADIUS
+        return jaw_for_width(2 * C.VIAL_RADIUS, squeeze=C.VIAL_GRIP_SQUEEZE)
     elif object_type == "cap":
         width = cap_width_at(cap_pick_height)
     else:

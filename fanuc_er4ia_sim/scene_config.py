@@ -195,6 +195,13 @@ JAW_MASS = 0.032  # one blade + its carriage
 JAW_DRIVE_STIFF = 4.0e4
 JAW_DRIVE_DAMP = 3.0e3
 JAW_MAX_FORCE = 180.0
+# Contact-patch radius of the 1 mm compliant pads (half the 6 mm rail thickness).
+# Rigid PhysX contacts otherwise give almost no friction against twisting about
+# the pad normal, so a long vial held off-centre pivots out of the fingers.
+GRIP_PATCH_RADIUS = 0.003
+# Pad squeeze for vials: jaw drive stiffness x squeeze = ~24 N per finger,
+# versus ~12 N from the 0.3 mm default. Long vials need the extra twist resistance.
+VIAL_GRIP_SQUEEZE = 0.0006
 
 TOOL_AXIS = (1.0, 0.0, 0.0)
 FINGER_SPREAD_AXIS = (0.0, 1.0, 0.0)

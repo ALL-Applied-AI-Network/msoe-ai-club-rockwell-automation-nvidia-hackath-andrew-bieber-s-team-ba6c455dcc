@@ -30,7 +30,10 @@ def segments(pick, home):
         name,p0,p1,duration,j0,j1,direction = phase
         if pick['category'] == 'vial':
             # trajectory uses two simulation seconds per duration unit.
-            duration = {'carry':3.0, 'lower':1.2, 'release':1.2, 'settle':3.0}.get(name,duration)
+            # Slower close/dwell lets grip force build before the vial is loaded;
+            # a slower lift halves peak acceleration on the long, off-centre vial.
+            duration = {'close':1.0, 'dwell':1.0, 'lift':1.6, 'carry':3.0,
+                        'lower':1.2, 'release':1.2, 'settle':3.0}.get(name,duration)
         yield name,p0,p1,duration,j0,j1,direction
 
 
@@ -119,6 +122,16 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
             position, quat = cube.get_world_pose()
             return D.centre(position, quat, pick["category"])
 
+        def in_gripper():
+            """Object centre and long axis in the flange frame (diagnostics only)."""
+            position, quat = cube.get_world_pose()
+            w, x, y, z = quat
+            axis = np.array([2*(x*z+y*w), 2*(y*z-x*w), 1-2*(x*x+y*y)])
+            centre = D.centre(position, quat, pick["category"]) - [0, 0, C.TABLE_TOP_Z]
+            rotation, flange = fk.fk(measured()[arm_idx])
+            return rotation.T @ (centre-flange), rotation.T @ axis
+
+        grip_reference = None
         before = object_centre().copy()
         report["initial_object_centre_world_m"] = before.tolist()
         # Evaluation gate only: never use measured pose to adjust grasp commands.
@@ -130,6 +143,16 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
             for q, jaw, target in steps:
                 tick(q, jaw)
             report.setdefault("phase_object_centres_world_m", {})[name] = object_centre().tolist()
+            # How far the object shifted/rotated inside the closed fingers.
+            if name == "dwell":
+                grip_reference = in_gripper()
+            elif grip_reference is not None and name in ("lift", "carry", "lower"):
+                offset, axis = in_gripper()
+                slip = float(np.linalg.norm(offset-grip_reference[0]))*1000
+                turn_deg = float(np.degrees(np.arccos(np.clip(abs(axis@grip_reference[1]), -1, 1))))
+                report.setdefault("grip_slip_mm", {})[name] = slip
+                report.setdefault("grip_rotation_deg", {})[name] = turn_deg
+                print(f"[demo] In-grip slip {slip:.1f} mm, rotation {turn_deg:.1f} deg", flush=True)
             actual_tip = fk.tool_pose(measured()[arm_idx], tool)[1]
             error = float(np.linalg.norm(actual_tip-target))
             report.setdefault("tip_errors_mm", {})[name] = error*1000

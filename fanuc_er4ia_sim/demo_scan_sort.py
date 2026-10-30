@@ -125,6 +125,8 @@ def main():
     parser.add_argument('--check-only',action='store_true')
     parser.add_argument('--exit-on-finish',action='store_true')
     parser.add_argument('--start-delay',type=float,default=10.)
+    parser.add_argument('--only',choices=('cube','vial','cap'),
+                        help='Pick only this category (quick test); other objects stay as obstacles')
     args=parser.parse_args()
     if not np.isfinite(args.start_delay) or args.start_delay<0:
         parser.error('--start-delay must be finite and nonnegative')
@@ -216,11 +218,11 @@ def main():
         baseline={pick['prim']:D.centre(*handles[pick['prim']].get_world_pose(),pick['category'])
                   for _,_,pick,_ in plans}
         items=[p for _,_,p,_ in plans]
-        object_count=len(items)
         plans.clear()
         executed=[]
         current_q=initial.copy()
-        pending=list(items)
+        pending=[p for p in items if args.only in (None,p['category'])]
+        object_count=len(pending); report['expected_objects']=object_count
         report['scheduling_events']=[]
         while pending:
             number=len(executed)+1
@@ -244,7 +246,7 @@ def main():
                 raise BlockedGrasp(failures)
             plan,observations=choose_next(pending,attempt,report['scheduling_events'])
             pick=plan[2]
-            print(f"\n[scan] OBJECT {number}/{len(items)}: {pick['group']} {pick['index']}",flush=True)
+            print(f"\n[scan] OBJECT {number}/{object_count}: {pick['group']} {pick['index']}",flush=True)
             save()
             print(f"[scan] Fresh target XY={pick['xy']}, yaw={pick['scan_yaw_deg']:.2f} deg",flush=True)
             def phase_guard(phase):

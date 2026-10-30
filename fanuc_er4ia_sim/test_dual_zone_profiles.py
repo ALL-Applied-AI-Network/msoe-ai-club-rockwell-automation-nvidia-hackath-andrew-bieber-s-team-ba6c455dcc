@@ -58,7 +58,7 @@ print(json.dumps(dict(profile=C.FINGER_SET,primary_gap=[2*C.PAD_FACE,2*(C.PAD_FA
     higher_cap=jaw_for_object('cap',.008) if C.FINGER_SET=='dual_v2' else None,
     rejects=[jaw('cube',v) is None for v in (.004,.018,float('nan'),float('inf'),-1)],
     invalid_category=jaw('unknown',.010) is None,
-    inactive_collisions=collisions,measured_vial=observed,
+    inactive_collisions=collisions,measured_vial=observed,hold=D.vial_hold(),
     vial_bin=B.BINS['vial'][:2],vial_slots=B.SLOTS['vial'],
     stops=[(c.tolist(),s.tolist()) for _,_,c,s,_ in B.vial_stops()])))
 '''
@@ -110,10 +110,18 @@ class DualZoneProfileTests(unittest.TestCase):
                 self.assertGreaterEqual(value, 0.)
                 self.assertLessEqual(value, .006)
         self.assertAlmostEqual(revised['fit']['screw'], .0001)
-        self.assertAlmostEqual(revised['fit']['vial'], .00429)
+        self.assertAlmostEqual(revised['fit']['vial'], .00399)
         self.assertAlmostEqual(revised['cube16'], .0051)
         self.assertEqual(revised['routed'], revised['fit'])
         self.assertLess(revised['higher_cap'], revised['fit']['cap'])
+
+    def test_vial_grip_resists_slip_and_off_centre_pivot(self):
+        for profile, data in self.profiles.items():
+            with self.subTest(profile=profile):
+                hold = data['hold']
+                self.assertGreaterEqual(hold['grip_force_n'], 20.)
+                self.assertGreaterEqual(hold['slip_margin'], 10.)
+                self.assertGreaterEqual(hold['twist_margin'], 5.)
 
     def test_invalid_sizes_are_rejected(self):
         self.assertTrue(all(self.profiles['dual_v2']['rejects']))

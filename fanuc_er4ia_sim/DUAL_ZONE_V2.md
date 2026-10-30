@@ -57,6 +57,32 @@ The demo still presents six 10 mm cubes, two vials and two caps. It scans before
 each pickup. Screw support and the 16 mm cube are checked by the fit arithmetic;
 they have not been added to this ten-object simulator demonstration.
 
+## Vial grip fix (October 30)
+
+Vials were dropping or not lifting. Changes:
+
+- **Pad contact patch.** Finger pads and the vial collider now set a 3 mm
+  PhysX torsional patch radius (`GRIP_PATCH_RADIUS`), matching half the 6 mm rail.
+  Without it, rigid contacts barely resist the vial twisting about the closing
+  axis. In `dual_v2`, the vial is gripped 81.5 mm off-centre and pivots out.
+- **Grip force.** Vial pad squeeze is 0.6 mm (`VIAL_GRIP_SQUEEZE`), about
+  24 N per finger instead of 12 N.
+- **Gentler motion.** Vial close, dwell and lift are slower.
+- **Diagnostics.** Each object report now records `grip_slip_mm` and
+  `grip_rotation_deg` for lift, carry and lower. These show whether a vial slid,
+  pivoted, or was never gripped.
+- `python dual_zone.py` prints the static hold margins (slip and twist).
+
+Quick vial-only test (other objects stay in the scene as obstacles):
+
+```bash
+FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced.py --only vial
+FINGER_SET=dual    "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced.py --only vial
+```
+
+Then run the full sort without `--only`. Physics behaviour is not yet confirmed
+in Isaac; check `runs/scan_sort_*/sort_report.json` and the per-object JSON files.
+
 ## Validation boundary
 
 The revised code passed 33 existing host tests and nine new profile tests.

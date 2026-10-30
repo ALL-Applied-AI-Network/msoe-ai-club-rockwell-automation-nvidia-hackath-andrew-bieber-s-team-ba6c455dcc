@@ -62,10 +62,31 @@ def jaw_target(category, measured_width=None):
     clearance = 0.0005 if category == 'cube' and C.FINGER_SET == 'dual_v2' else 0.001
     if w+2*clearance > 2*(f+C.JAW_OPEN)+1e-12:
         raise ValueError(f'{category}: insufficient opening with {clearance*1000:g} mm/side clearance')
-    target = w/2-f-0.0003
+    target = w/2-f-squeeze(category)
     if not C.JAW_CLOSED <= target <= C.JAW_OPEN:
         raise ValueError(f'{category}: outside actual actuator stroke')
     return target
+
+def squeeze(category):
+    """Commanded pad overlap; the jaw drive turns it into grip force."""
+    return C.VIAL_GRIP_SQUEEZE if category == 'vial' else 0.0003
+
+def vial_hold():
+    """Static check that the grip resists the vial's weight, slip and pivot.
+
+    Off-centre grips (dual_v2) must resist the vial's weight torque about the
+    finger closing axis through friction over the pad contact patch. A 1.5 g
+    vertical load factor covers lift/carry accelerations.
+    """
+    force = min(C.JAW_DRIVE_STIFF*squeeze('vial'), C.JAW_MAX_FORCE)  # per finger
+    mu = min(C.SOFT_TIP_STATIC_FRIC, C.SOFT_TIP_DYNAMIC_FRIC)
+    load = C.VIAL_MASS*9.81*1.5
+    twist_needed = load*VIAL_CONTACT_OFFSET
+    twist_capacity = 2*mu*force*C.GRIP_PATCH_RADIUS
+    slip_capacity = 2*mu*force
+    return dict(grip_force_n=force, friction=mu, contact_offset_m=VIAL_CONTACT_OFFSET,
+                slip_margin=slip_capacity/load,
+                twist_margin=(twist_capacity/twist_needed if twist_needed > 0 else float('inf')))
 
 def pick_spec(category, index):
     """Configured-position diagnostic only; no measured poses used for commands."""
@@ -107,6 +128,9 @@ def report():
         print(f'16 mm cube jaw target: {jaw_target("cube", .016)*1000:.2f} mm (0.5 mm/side entry clearance)')
         print(f'Vial: {C.VIAL_RADIUS*2000:.2f} x {C.VIAL_LENGTH*1000:.1f} mm; contact {VIAL_CONTACT_OFFSET*1000:.1f} mm from centre')
         print('Virtual vial-centre TCP: 121.5 mm from primary rail; off-centre grip stability unverified.')
+    hold = vial_hold()
+    print(f"Vial hold: {hold['grip_force_n']:.0f} N/finger, slip margin {hold['slip_margin']:.0f}x, "
+          f"twist margin {hold['twist_margin']:.1f}x (contact patch r={C.GRIP_PATCH_RADIUS*1000:g} mm)")
     print('Cap flange 31.75 mm stays BELOW the tips; this zone cannot grip the flange.')
     print('Fixed sizes/orientations only. Physics and clutter clearance require Rosie validation.')
 if __name__=='__main__': report()
