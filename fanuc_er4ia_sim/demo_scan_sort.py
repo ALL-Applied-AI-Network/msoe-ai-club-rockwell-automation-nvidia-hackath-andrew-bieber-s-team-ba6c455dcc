@@ -158,7 +158,10 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--headless',action='store_true')
     parser.add_argument('--viewport-fps',type=int,choices=(10,15,30),default=15,
-                        help='Viewport refresh only; physics stays at 60 Hz')
+                        help='Viewport refresh only; does not change the physics rate')
+    parser.add_argument('--physics-hz',type=int,choices=(60,120,240),default=240,
+                        help='Physics steps per second (motion timing is unchanged). '
+                             '60 Hz let held vials creep out of the grip during long carries')
     parser.add_argument('--save-scan-images',action='store_true',
                         help='Save RGB PNG and mask NPZ diagnostics; JSON is always retained')
     parser.add_argument('--check-only',action='store_true')
@@ -191,7 +194,7 @@ def main():
                 expected_objects=len(plans),final_audit=[],destinations=SLOTS,
                 performance=dict(viewport_fps=0 if args.headless else args.viewport_fps,
                                  viewport_size=[960,540],scan_resolution=3072,
-                                 scan_images=args.save_scan_images,physics_hz=60))
+                                 scan_images=args.save_scan_images,physics_hz=args.physics_hz))
     path=directory/'sort_report.json'
     def save(): path.write_text(json.dumps(report,indent=2)+'\n')
     save()
@@ -207,7 +210,8 @@ def main():
         from isaacsim.core.prims import SingleArticulation,SingleXFormPrim
         from isaacsim.core.utils.types import ArticulationAction
         import cell
-        world=World(stage_units_in_meters=1.,physics_dt=1/60,rendering_dt=1/30)
+        # rendering_dt == physics_dt: a rendered step then advances exactly one physics step.
+        world=World(stage_units_in_meters=1.,physics_dt=1/args.physics_hz,rendering_dt=1/args.physics_hz)
         stage=omni.usd.get_context().get_stage()
         cell.build(stage)
         if not stage.GetPrimAtPath('/World/SolidWorkSurface').IsValid():
@@ -246,8 +250,10 @@ def main():
             start=time.monotonic()
             command(q,jaw)
             tick_count+=1
-            world.step(render=False)
-            world.step(render=(not args.headless and tick_count%render_every==0))
+            # One motion frame = 1/30 s of physics, split into physics_hz/30 steps.
+            substeps=args.physics_hz//30
+            for k in range(substeps):
+                world.step(render=(k==substeps-1 and not args.headless and tick_count%render_every==0))
             if not args.headless: time.sleep(max(0,1/30-(time.monotonic()-start)))
         initial=plans[0][0]
         arm.set_joint_positions(command(initial,C.JAW_OPEN))  # Initialization only.

@@ -320,7 +320,8 @@ def make_dynamic(
     px.CreateAngularDampingAttr().Set(angular_damping)
     px.CreateLinearDampingAttr().Set(linear_damping)
     px.CreateSolverPositionIterationCountAttr().Set(16)
-    px.CreateSolverVelocityIterationCountAttr().Set(2)
+    # 8 velocity passes (was 2): friction on held objects is resolved here.
+    px.CreateSolverVelocityIterationCountAttr().Set(8)
     # Never sleep: a sleeping body reads as perfectly still to the pre-grasp
     # scan, then shifts when the fingers wake it.
     px.CreateSleepThresholdAttr().Set(0.0)
