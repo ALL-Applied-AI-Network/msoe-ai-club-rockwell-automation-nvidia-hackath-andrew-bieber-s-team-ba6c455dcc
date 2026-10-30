@@ -272,6 +272,17 @@ def main():
                     centre=D.centre(position,quat,pick['category'])
                     delta=(centre[:2]-np.asarray(pick['xy']))*1000
                     if np.linalg.norm(delta)>1.5:
+                        # Evaluation only: which objects moved since the start, and by how much.
+                        moved=[]
+                        for p in items:
+                            c=D.centre(*handles[p['prim']].get_world_pose(),p['category'])
+                            shift=(c-baseline[p['prim']])*1000
+                            if np.linalg.norm(shift[:2])>1.0:
+                                moved.append(f"{p['prim']} dx={shift[0]:.1f} dy={shift[1]:.1f} mm")
+                        rotation,flange=fk.fk(measured()[arm_idx])
+                        print('[guard] Objects moved since start: '+('; '.join(moved) or 'none'),flush=True)
+                        print(f'[guard] Flange now {np.round(flange,3).tolist()}, '
+                              f'tool axis {np.round(rotation@np.asarray(C.TOOL_AXIS),3).tolist()}',flush=True)
                         raise RuntimeError(f'Object moved after scan (before {phase}): true centre '
                             f'{np.round(centre[:2],4).tolist()} vs scanned {np.round(pick["xy"],4).tolist()}, '
                             f'off by dx={delta[0]:.2f} dy={delta[1]:.2f} mm; stop and rescan on a new run')
