@@ -270,8 +270,11 @@ def main():
                 if phase in ('descend','close'):
                     position,quat=handles[pick['prim']].get_world_pose()
                     centre=D.centre(position,quat,pick['category'])
-                    if np.linalg.norm(centre[:2]-pick['xy'])>.0015:
-                        raise RuntimeError('Object moved after scan; stop and rescan on a new run')
+                    delta=(centre[:2]-np.asarray(pick['xy']))*1000
+                    if np.linalg.norm(delta)>1.5:
+                        raise RuntimeError(f'Object moved after scan (before {phase}): true centre '
+                            f'{np.round(centre[:2],4).tolist()} vs scanned {np.round(pick["xy"],4).tolist()}, '
+                            f'off by dx={delta[0]:.2f} dy={delta[1]:.2f} mm; stop and rescan on a new run')
             item=run_pick(app,world,arm,arm_idx,tick,measured,plan,
                           directory/f"{number:02d}_{pick['category']}_{pick['index']}.json",phase_hook=phase_guard)
             item['scan']=observations[pick['prim']]
