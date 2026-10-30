@@ -69,15 +69,35 @@ def fit_mask(mask,kind,size=None):
                                       RES/2-(pts[:,1]-CENTER[1])/WIDTH*RES-.5))
     pixels=to_px(corners)
     if kind=='screw':
-        # Head at either end; keep the better match.
-        best=None
-        for head_first in (True,False):
+        # The min-area rectangle of a wide-head/thin-shank outline is often tilted a
+        # few degrees off the screw axis -- fatal on a 6 mm shank. Start from the
+        # principal axis instead, centre on the mid-length, then refine angle and
+        # position (coarse-to-fine) against the screw outline, head at either end.
+        centred=points-points.mean(axis=0)
+        _,vectors=np.linalg.eigh(centred.T@centred)
+        axis=vectors[:,-1]
+        along=centred@axis
+        xy=tuple(points.mean(axis=0)+axis*(along.min()+along.max())/2)
+        yaw=float(np.degrees(np.arctan2(axis[1],axis[0])))
+        def score(cx,cy,angle,head_first):
             trial=np.zeros(cropped.shape,np.uint8)
-            for poly in screw_outline(xy,yaw,head_first):
+            for poly in screw_outline((cx,cy),angle,head_first):
                 cv2.fillConvexPoly(trial,np.round(to_px(poly)).astype(int)-np.array([x0,y0]),1)
-            score=np.logical_and(cropped,trial).sum()/max(1,np.logical_or(cropped,trial).sum())
-            if best is None or score>best[0]: best=(score,trial)
-        expected=best[1]
+            return np.logical_and(cropped,trial).sum()/max(1,np.logical_or(cropped,trial).sum()),trial
+        best=max(((score(*xy,yaw,h)[0],xy,yaw,h) for h in (True,False)),key=lambda b:b[0])
+        for step_deg,step_m in ((2.,.001),(.5,.00025)):
+            improved=True
+            while improved:
+                improved=False
+                _,(cx,cy),angle,head=best
+                u=np.array([np.cos(np.radians(angle)),np.sin(np.radians(angle))]);v=np.array([-u[1],u[0]])
+                for da,ds,dl in ((step_deg,0,0),(-step_deg,0,0),(0,step_m,0),(0,-step_m,0),(0,0,step_m),(0,0,-step_m)):
+                    c=np.array([cx,cy])+u*ds+v*dl
+                    trial_score=score(*c,angle+da,head)[0]
+                    if trial_score>best[0]+1e-6:
+                        best=(trial_score,tuple(c),angle+da,head);improved=True
+        _,xy,yaw,head=best
+        expected=score(*xy,yaw,head)[1]
     elif kind=='cap':
         pixel_center=((np.array(xy)-CENTER)/WIDTH*RES*np.array([1,-1])+RES/2-.5).round().astype(int)
         cv2.circle(expected,tuple(pixel_center-np.array([x0,y0])),round((long+short)/4/WIDTH*RES),1,-1)
@@ -206,7 +226,11 @@ class Scanner:
                 if rgba.ndim==3: cv2.imwrite(str(stem)+'.png',cv2.cvtColor(rgba[:,:,:3],cv2.COLOR_RGB2BGR))
                 np.savez_compressed(str(stem)+'_mask.npz',ids=data)
             Path(str(stem)+'.json').write_text(json.dumps(dict(observations=output,errors=errors),indent=2))
-        if errors: raise RuntimeError('Scan rejected: '+json.dumps(errors))
+        if errors:
+            # Keep the segmentation frame that failed, for diagnosis.
+            np.savez_compressed(str(self.directory/f'rejected_{self.number:04d}.npz'),ids=data,
+                                errors=json.dumps(errors))
+            raise RuntimeError('Scan rejected: '+json.dumps(errors))
         return output
 
     def stable(self,required,target,tick,q,timeout=20.,samples=5,gap_ticks=15):

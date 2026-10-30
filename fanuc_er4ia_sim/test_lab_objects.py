@@ -33,6 +33,28 @@ for xy, yaw, head in (((.47, -.145), 0., True), ((.15, .24), 90., False), ((.3, 
     screw_fits.append(dict(xy_error=float(np.linalg.norm(np.subtract(fit['xy'], xy))),
                            yaw_error=error, iou=fit['silhouette_iou']))
 
+def resting_screw(xy, yaw, tilt=6.):
+    # Top-down outline of the real 3D screw resting on its head rim (axis ~6 deg tilt).
+    mask = np.zeros((RES, RES), np.uint8)
+    hr, sr, hh, L = C.SCREW_HEAD_D/2, C.SCREW_SHANK_D/2, C.SCREW_HEAD_H, C.SCREW_LENGTH
+    a = np.linspace(0, 2*np.pi, 48, endpoint=False)
+    ring = lambda r, z: np.column_stack([r*np.cos(a), r*np.sin(a), np.full_like(a, z)])
+    t, w = np.radians(tilt), np.radians(yaw)
+    lay = np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]])
+    tip = np.array([[np.cos(t), 0, -np.sin(t)], [0, 1, 0], [np.sin(t), 0, np.cos(t)]])
+    turn = np.array([[np.cos(w), -np.sin(w), 0], [np.sin(w), np.cos(w), 0], [0, 0, 1]])
+    for pts in (np.vstack([ring(hr, 0), ring(sr, hh)]), np.vstack([ring(sr, hh), ring(sr, L)])):
+        xy2 = (turn@tip@lay@(pts-[0, 0, L/2]).T).T[:, :2]+xy
+        cv2.fillConvexPoly(mask, cv2.convexHull(np.round(px(xy2)).astype(np.int32)), 1)
+    return mask.astype(bool)
+
+resting = []
+for yaw in (7., 21., 84., 98., 126., 161., 168.):  # angles rejected before the fix
+    fit = fit_mask(resting_screw((.35, .05), yaw), 'screw')
+    resting.append(dict(iou=fit['silhouette_iou'], yaw_error=abs((fit['yaw_deg']-yaw+90) % 180-90),
+                        xy_error=float(np.linalg.norm(np.subtract(fit['xy'], (.35, .05))))))
+screw_fits += resting
+
 def square(edge, yaw):
     mask = np.zeros((RES, RES), np.uint8)
     a = np.radians(yaw)

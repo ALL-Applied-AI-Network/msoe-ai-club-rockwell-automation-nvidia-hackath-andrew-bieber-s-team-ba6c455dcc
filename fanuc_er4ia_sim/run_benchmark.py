@@ -34,7 +34,9 @@ def summarize(seed, report, status, wall_s, returncode):
                             reason=item.get('camera_reason') or item.get('error')))
     bench = report.get('benchmark') or {}
     return dict(seed=seed, status=status, returncode=returncode, wall_s=round(wall_s, 1),
-                placed=report.get('placed_objects'), expected=report.get('expected_objects'),
+                placed=(report.get('placed_objects') if report.get('placed_objects') is not None
+                        else len({(o['object'], o['index']) for o in objects if o['complete']}) if report else None),
+                expected=report.get('expected_objects'),
                 complete=bool(report.get('complete')), failed_objects=report.get('failed_objects', []),
                 recoveries=report.get('recoveries', []),
                 camera_sim_agreement=report.get('camera_sim_agreement'),
@@ -65,7 +67,7 @@ def main():
                 row = json.loads(line)
                 done[row['seed']] = row['status']
     seeds = [s for s in range(args.start_seed, args.start_seed+args.trials)
-             if s not in done or (args.retry_crashed and done[s] in ('crash', 'timeout'))]
+             if s not in done or (args.retry_crashed and done[s] in ('crash', 'timeout', 'error'))]
     print(f'[bench] {len(seeds)} trials to run ({args.trials-len(seeds)} already recorded) -> {results}',
           flush=True)
     durations = []
@@ -91,7 +93,12 @@ def main():
         report = json.loads(report_path.read_text()) if report_path.exists() else {}
         if status != 'timeout' and report:
             # Isaac can exit 0 after an exception: judge by the report, not the exit code.
-            status = 'pass' if report.get('complete') else ('fail' if report.get('placed_objects') is not None else 'crash')
+            if report.get('placed_objects') is not None:
+                status = 'pass' if report.get('complete') else 'fail'   # finished the sort
+            elif report.get('error'):
+                status = 'error'   # sorter stopped with an error message (in the report)
+            else:
+                status = 'crash'   # process died mid-run (see console.log)
         row = summarize(seed, report, status, wall, returncode)
         with open(results, 'a') as out:
             out.write(json.dumps(row)+'\n')

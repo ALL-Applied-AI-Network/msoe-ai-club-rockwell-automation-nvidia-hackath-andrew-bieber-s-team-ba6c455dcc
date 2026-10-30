@@ -23,7 +23,7 @@ def wilson(successes, n, z=1.96):
 def summarize(rows):
     trials = len(rows)
     passed = sum(r['status'] == 'pass' for r in rows)
-    ran = [r for r in rows if r['status'] in ('pass', 'fail')]
+    ran = [r for r in rows if r['status'] in ('pass', 'fail', 'error')]
     by_type = {}
     for r in ran:
         for o in r['objects']:
@@ -48,7 +48,7 @@ def summarize(rows):
     return dict(
         trials=trials, passed=passed, pass_rate=passed/trials if trials else 0.0,
         pass_rate_95ci=[low, high],
-        statuses={s: sum(r['status'] == s for r in rows) for s in ('pass', 'fail', 'crash', 'timeout')},
+        statuses={s: sum(r['status'] == s for r in rows) for s in ('pass', 'fail', 'error', 'crash', 'timeout')},
         objects_placed=placed, objects_expected=expected,
         object_placement_rate=placed/expected if expected else 0.0,
         by_type=by_type,
