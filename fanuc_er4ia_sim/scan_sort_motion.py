@@ -126,7 +126,9 @@ def trajectory(pick, previous=None):
 def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=None):
     from isaacsim.core.prims import SingleXFormPrim
     initial, phases, pick, worst = plan
-    cube = SingleXFormPrim(pick["prim"])
+    # reset_xform_properties=False: the default rewrites the prim's xform from the
+    # stale USD spawn pose, which teleported a resting vial and set it rolling.
+    cube = SingleXFormPrim(pick["prim"], reset_xform_properties=False)
     tool = D.tool_offset(pick["category"])
     report = dict(object=pick["category"], index=pick["index"], group=pick["group"],
                   color=pick["color"], destination_xy_m=pick["place_xy"],

@@ -209,7 +209,7 @@ def main():
         names=list(arm.dof_names)
         arm_idx=[names.index(f'J{i}') for i in range(1,7)]
         joints={name:i for i,name in enumerate(names)}
-        handles={pick['prim']:SingleXFormPrim(pick['prim']) for _,_,pick,_ in plans}
+        handles={pick['prim']:SingleXFormPrim(pick['prim'],reset_xform_properties=False) for _,_,pick,_ in plans}
         def measured():
             values=arm.get_joint_positions()
             if values is None: raise RuntimeError('Physics view unavailable; do not press Stop during sorting')

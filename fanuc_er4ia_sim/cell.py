@@ -902,7 +902,8 @@ def add_sort_objects(stage):
             Gf.Vec3d(
                 x_ctr - C.VIAL_LENGTH / 2 * _math.cos(yaw_rad),
                 y - C.VIAL_LENGTH / 2 * _math.sin(yaw_rad),
-                Z + C.VIAL_RADIUS + 0.001,
+                # Rest on the surface: a 1 mm drop set the lying vial rolling.
+                Z + C.VIAL_RADIUS + 0.0001,
             )
         )
         if yaw_deg != 0.0:
