@@ -158,8 +158,23 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
         for name, steps in phases:
             if phase_hook is not None: phase_hook(name)
             print(f"[demo] {name.upper()}", flush=True)
-            for q, jaw, target in steps:
+            for frame, (q, jaw, target) in enumerate(steps):
                 tick(q, jaw)
+                # Frame-level grip trace (diagnostics only): log every 15 frames, and
+                # the first frame the object turns >2 deg in the fingers.
+                if grip_reference is not None and name in ("lift", "carry", "lower") and (
+                        frame % 15 == 0 or frame == len(steps)-1):
+                    offset, axis = in_gripper()
+                    turn_deg = float(np.degrees(np.arccos(np.clip(abs(axis@grip_reference[1]), -1, 1))))
+                    lag = float(np.degrees(np.max(np.abs(measured()[arm_idx]-q))))
+                    report.setdefault("grip_trace", []).append(dict(
+                        phase=name, frame=frame, of=len(steps), rotation_deg=turn_deg,
+                        slip_mm=float(np.linalg.norm(offset-grip_reference[0]))*1000,
+                        max_joint_lag_deg=lag))
+                    if turn_deg > 2 and not report.get("grip_first_turn"):
+                        report["grip_first_turn"] = report["grip_trace"][-1]
+                        print(f"[grip] Object turned {turn_deg:.1f} deg in the fingers at {name} "
+                              f"frame {frame}/{len(steps)}; max joint lag {lag:.2f} deg", flush=True)
             report.setdefault("phase_object_centres_world_m", {})[name] = object_centre().tolist()
             # How far the object shifted/rotated inside the closed fingers.
             if name == "dwell":
@@ -188,6 +203,10 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
                 report["carry_verified"] = bool(pos[2]-before[2] > 0.025
                     and np.linalg.norm(pos[:2]-pick["place_xy"]) < 0.005)
                 if not report["carry_verified"]:
+                    for row in report.get("grip_trace", []):
+                        print(f"[grip] {row['phase']:5} {row['frame']:3}/{row['of']}: rotation "
+                              f"{row['rotation_deg']:5.1f} deg, slip {row['slip_mm']:5.1f} mm, "
+                              f"joint lag {row['max_joint_lag_deg']:.2f} deg", flush=True)
                     raise RuntimeError("Object lost during carry")
             if name == "settle":
                 settled = object_centre().copy()
