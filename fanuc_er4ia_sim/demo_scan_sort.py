@@ -11,7 +11,8 @@ import numpy as np
 import scene_config as C
 import dual_zone as D
 import fk,ik
-from scan_sort_motion import trajectory,run_pick,pose_metrics,object_box,boxes_overlap,finger_boxes
+import scan_sort_motion as motion
+from scan_sort_motion import PARK_XYZ,PARK_SPREAD,trajectory,run_pick,pose_metrics,object_box,boxes_overlap,finger_boxes
 from scan_sort_camera import Scanner
 import scan_sort_bins as bins
 SLOTS=bins.SLOTS
@@ -31,10 +32,29 @@ def park_pose():
     ik.set_tool_axis(C.TOOL_AXIS);ik.set_spread_axis(C.FINGER_SPREAD_AXIS)
     limits=np.deg2rad([C.JOINT_LIMITS_DEG[f'J{i}'] for i in range(1,7)])
     q=np.deg2rad([C.HOME_POSE_DEG[f'J{i}'] for i in range(1,7)])
-    q,ok=ik.solve(q,np.array([.15,-.05,.24]),np.array([0.,0.,-1.]),limits,
-                  tool_offset=D.tool_offset('cube'),spread_dir=np.array([0.,1.,0.]),iters=500)
+    q,ok=ik.solve(q,np.array(PARK_XYZ),np.array([0.,0.,-1.]),limits,
+                  tool_offset=D.tool_offset('cube'),spread_dir=np.array(PARK_SPREAD),iters=500)
     if not ok: raise RuntimeError('Scan parking pose IK failed')
+    spread=fk.fk(q)[0]@np.asarray(C.FINGER_SPREAD_AXIS); spread[2]=0
+    motion.set_park_spread(spread/np.linalg.norm(spread))
     return q
+
+def grasp_directions(pick):
+    """Finger directions tried for a grasp, in order (same set at startup and runtime)."""
+    directions=[pick['spread_dir'],-pick['spread_dir']]
+    # Round cap plugs permit an additional pair of perpendicular grasps.
+    if pick['category']=='cap':
+        directions+=[np.array([1.,0.,0.]),np.array([-1.,0.,0.])]
+    return directions
+
+def plan_any(pick,previous):
+    """Startup plan: preferred direction first, then the runtime fallbacks."""
+    try: return trajectory(pick,previous)
+    except RuntimeError as first:
+        for direction in grasp_directions(pick):
+            try: return trajectory(dict(pick,force_spread=True,spread_dir=direction.copy()),previous)
+            except RuntimeError: pass
+        raise first
 
 def from_scan(template,observation):
     p=dict(template)
@@ -132,7 +152,7 @@ def main():
         parser.error('--start-delay must be finite and nonnegative')
     plans=[]; previous=park_pose()
     for pick in inventory():
-        plan=trajectory(pick,previous)
+        plan=plan_any(pick,previous)
         previous=plan[1][-1][1][-1][0].copy()
         plans.append(plan)
         print(f"[sort] PLAN {pick['category']} {pick['index']} -> {pick['group']} {pick['place_xy']}; "
@@ -232,11 +252,7 @@ def main():
                 pick=next(p for p in snapshot if p['prim']==template['prim'])
                 obstacles=[p for p in snapshot if p['prim']!=pick['prim']]
                 failures=[]
-                # Round cap plugs permit an additional pair of perpendicular grasps.
-                directions=[pick['spread_dir'], -pick['spread_dir']]
-                if pick['category']=='cap':
-                    directions += [np.array([1.,0.,0.]), np.array([-1.,0.,0.])]
-                for direction in directions:
+                for direction in grasp_directions(pick):
                     candidate=dict(pick,force_spread=True,spread_dir=direction.copy())
                     try:
                         plan=trajectory(candidate,current_q)

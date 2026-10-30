@@ -21,6 +21,19 @@ from demo_dual_zone import ease, turn, segments as original_segments
 # Two separate slots per group, metres in robot-base XY.
 from scan_sort_bins import SLOTS
 
+# Scan park pose: tool 300 mm above (0.08, 0), fingers closing along X.
+# Keeps the arm and wrist camera out of the overhead camera's view of every
+# object, slot and sorting area (the old pose hid one end of the 203 mm vial).
+PARK_XYZ = (0.08, 0.0, 0.30)
+PARK_SPREAD = (1.0, 0.0, 0.0)  # demo_scan_sort replaces this with the solved sign
+
+
+def set_park_spread(direction):
+    """Pin the exact park finger direction. Every pick returns to it, so the
+    arm (and an off-centre vial TCP) ends at the same park pose each time."""
+    global PARK_SPREAD
+    PARK_SPREAD = tuple(float(v) for v in direction)
+
 COLORS = {"cube_yellow": (0.95,0.8,0.05), "cube_red": (0.9,0.12,0.1),
           "cube_blue": (0.12,0.35,0.9), "vial": (0.1,0.8,0.8), "cap": (0.8,0.3,0.8)}
 
@@ -34,6 +47,9 @@ def segments(pick, home):
             # a slower lift halves peak acceleration on the long, off-centre vial.
             duration = {'close':1.0, 'dwell':1.0, 'lift':1.6, 'carry':3.0,
                         'lower':1.2, 'release':1.2, 'settle':3.0}.get(name,duration)
+        if name == 'home':
+            # Return with the wrist in the park orientation so the camera stays clear.
+            direction = np.array(PARK_SPREAD)
         yield name,p0,p1,duration,j0,j1,direction
 
 
@@ -78,7 +94,7 @@ def trajectory(pick, previous=None):
     worst = 0.0
     for name, p0, p1, duration, j0, j1, direction in segments(pick, home):
         start = None
-        if direction is not None and name in ("approach", "carry"):
+        if direction is not None and name in ("approach", "carry", "home"):
             start = fk.fk(q)[0] @ np.asarray(C.FINGER_SPREAD_AXIS)
             start[2] = 0
             start /= np.linalg.norm(start)
