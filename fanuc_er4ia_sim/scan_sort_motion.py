@@ -194,8 +194,16 @@ def recovery_steps(q_now, park_q, category, rise=0.10):
 
 
 def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=None,
-             force_drop=False):
-    """force_drop: open the jaws halfway through the carry (recovery demo/test)."""
+             force_drop=False, sim_checks_abort=True):
+    """force_drop: open the jaws halfway through the carry (recovery demo/test).
+    sim_checks_abort=False (camera verification): simulator object checks are
+    recorded but never stop the motion -- a real robot cannot know the object
+    slipped, so it completes the move and the camera check afterwards decides."""
+    def object_check_failed(message):
+        report.setdefault("sim_check_failures", []).append(message)
+        if sim_checks_abort:
+            raise RuntimeError(message)
+        print(f"[demo] (simulator, evaluation only) {message}; continuing", flush=True)
     from isaacsim.core.prims import SingleXFormPrim
     initial, phases, pick, worst = plan
     # reset_xform_properties=False: the default rewrites the prim's xform from the
@@ -226,7 +234,7 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
         report["initial_object_centre_world_m"] = before.tolist()
         # Evaluation gate only: never use measured pose to adjust grasp commands.
         if np.linalg.norm(before[:2] - pick["xy"]) > 0.002:
-            raise RuntimeError("Object moved away from the configured test position; aborting")
+            object_check_failed("Object moved away from the configured test position")
         for name, steps in phases:
             if phase_hook is not None: phase_hook(name)
             print(f"[demo] {name.upper()}", flush=True)
@@ -274,7 +282,7 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
                 report["pickup_verified"] = height > 0.025
                 print(f"[demo] Object rose {height*1000:.1f} mm; pickup={report['pickup_verified']}", flush=True)
                 if not report["pickup_verified"]:
-                    raise RuntimeError("Object did not lift; stopping before carry")
+                    object_check_failed("Object did not lift")
             if name == "carry":
                 pos = object_centre()
                 report["carry_verified"] = bool(pos[2]-before[2] > 0.025
@@ -284,7 +292,7 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
                         print(f"[grip] {row['phase']:5} {row['frame']:3}/{row['of']}: rotation "
                               f"{row['rotation_deg']:5.1f} deg, slip {row['slip_mm']:5.1f} mm, "
                               f"joint lag {row['max_joint_lag_deg']:.2f} deg", flush=True)
-                    raise RuntimeError("Object lost during carry")
+                    object_check_failed("Object lost during carry")
             if name == "settle":
                 settled = object_centre().copy()
                 report["settled_centre_world_m"] = settled.tolist()

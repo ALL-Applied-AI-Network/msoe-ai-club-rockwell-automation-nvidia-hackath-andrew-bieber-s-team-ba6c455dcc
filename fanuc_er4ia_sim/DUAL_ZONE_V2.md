@@ -179,9 +179,17 @@ object's carry; the arm should back off, rescan and pick it up again:
 FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced.py --only cube --force-drop
 ```
 
-Failures are detected with simulator poses (evaluation only); the retry target
-always comes from a fresh camera scan. On the physical cell, detection would
-need a camera check after each placement instead.
+**Camera verification (default, `--verify camera`).** After every pick the
+arm is back at the scan pose and one overhead frame decides: a binned object
+must be visible inside the right bin's pocket; a vial within 6 mm of its slot.
+Anything else (wrong place, not visible, still on the table) starts the
+recovery. Like a real robot, the arm no longer stops mid-move when the
+simulator says the object slipped -- it finishes and the camera check catches
+it. The same frame re-checks objects already sorted. Simulator poses are only
+recorded, next to the camera verdict, for evaluation: console lines show
+`[verify] Camera: ... -> PLACED` (with `[simulator disagrees]` if they differ)
+and the run ends with the camera/simulator agreement count. `--verify sim`
+restores the simulator-pose shortcut.
 
 ## Validation boundary
 

@@ -19,7 +19,7 @@ C = SP.configure()
 import dual_zone as D
 import scan_sort_bins as B
 import demo_scan_sort as S
-from scan_sort_camera import fit_mask, screw_outline, RES, WIDTH, CENTER
+from scan_sort_camera import fit_mask, screw_outline, RES, WIDTH, CENTER, mask_centroid, verify_placement
 
 px = lambda pts: np.column_stack(((pts[:, 0]-CENTER[0])/WIDTH*RES+RES/2-.5,
                                   RES/2-(pts[:, 1]-CENTER[1])/WIDTH*RES-.5))
@@ -49,6 +49,30 @@ def rejects(mask, kind, size=None):
         return True
 
 items = S.inventory()
+
+def blob(xy, edge, yaw=0.):
+    return mask_centroid(square_at(xy, edge, yaw))
+
+def square_at(xy, edge, yaw):
+    mask = np.zeros((RES, RES), np.uint8)
+    a = np.radians(yaw)
+    rot = np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
+    corners = (np.array([[-1, -1], [1, -1], [1, 1], [-1, 1]])*edge/2)@rot.T+xy
+    cv2.fillConvexPoly(mask, np.round(px(corners)).astype(int), 1)
+    return mask.astype(bool)
+
+blue = dict(bin='blue', place_xy=list(B.drop_xy('blue', 0)))
+bx, by = B.REAL_BINS['blue'][0]
+vial = next(p for p in items if p['category'] == 'vial')
+camera = dict(
+    in_bin=verify_placement(blob((bx+.009, by-.009), .010), blue)[0],
+    tumbled_in_corner=verify_placement(blob((bx+.011, by+.011), .010, 45.), blue)[0],
+    beside_bin=verify_placement(blob((bx+.040, by), .010), blue)[0],
+    wrong_bin=verify_placement(blob(B.REAL_BINS['red'][0], .010), blue)[0],
+    missing=verify_placement(mask_centroid(np.zeros((RES, RES), bool)), blue)[0],
+    vial_on_slot=verify_placement(dict(found=True, xy=[vial['place_xy'][0]+.002, vial['place_xy'][1]]), vial)[0],
+    vial_off_slot=verify_placement(dict(found=True, xy=[vial['place_xy'][0], vial['place_xy'][1]+.010]), vial)[0],
+    centroid_error=float(np.linalg.norm(np.subtract(blob((.3, .1), .016)['xy'], (.3, .1)))))
 import fk
 from scan_sort_motion import recovery_steps, finger_boxes
 park = S.park_pose()
@@ -60,7 +84,7 @@ recovery = dict(ends_at_park=bool(np.allclose(frames[-1][0], park)),
                 max_step_deg=float(np.degrees(np.abs(np.diff([f[0] for f in frames], axis=0))).max()),
                 lowest_mm=float(min((c-np.abs(r)@h)[2]-C.SURFACE_DZ for q, j in frames
                                     for _, (c, r, h) in finger_boxes(q, j))*1000))
-print(json.dumps(dict(recovery=recovery,
+print(json.dumps(dict(recovery=recovery, camera=camera,
     screw=[C.SCREW_LENGTH, C.SCREW_HEAD_D, C.SCREW_SHANK_D],
     cube_edges=sorted({p['size'] for p in items if p['category'] == 'cube'}),
     vial=[2*C.VIAL_RADIUS, C.VIAL_LENGTH], cap=[2*C.CAP_RADIUS, C.CAP_HEIGHT],
@@ -137,6 +161,17 @@ class LabObjectTests(unittest.TestCase):
         self.assertFalse(b['on_rim_out'])
         self.assertGreater(b['release_z'], b['height'])  # fingers stay above the rim
         self.assertTrue(b['stacked_in'])  # 16 mm cube resting on two cubes still counts
+
+    def test_camera_verification_verdicts(self):
+        c = self.data['camera']
+        self.assertTrue(c['in_bin'])
+        self.assertTrue(c['tumbled_in_corner'])
+        self.assertFalse(c['beside_bin'])
+        self.assertFalse(c['wrong_bin'])
+        self.assertFalse(c['missing'])
+        self.assertTrue(c['vial_on_slot'])
+        self.assertFalse(c['vial_off_slot'])
+        self.assertLess(c['centroid_error'], .0005)
 
     def test_cube_drops_do_not_overlap_and_clear_the_walls(self):
         (a, b, c), half = self.data['bins']['blue_drops'], self.data['bins']['pocket']/2

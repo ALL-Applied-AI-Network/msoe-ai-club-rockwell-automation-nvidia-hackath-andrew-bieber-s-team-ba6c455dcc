@@ -13,7 +13,7 @@ import dual_zone as D
 import fk,ik
 import scan_sort_motion as motion
 from scan_sort_motion import recovery_steps,PARK_XYZ,PARK_SPREAD,trajectory,run_pick,pose_metrics,object_box,boxes_overlap,finger_boxes
-from scan_sort_camera import Scanner
+from scan_sort_camera import Scanner, verify_placement
 import scan_sort_bins as bins
 SLOTS=bins.SLOTS
 
@@ -173,6 +173,9 @@ def main():
     parser.add_argument('--exit-on-finish',action='store_true')
     parser.add_argument('--start-delay',type=float,default=4.,
                         help='Seconds for objects to settle before the first scan')
+    parser.add_argument('--verify',choices=('camera','sim'),default='camera',
+                        help='How a pick is judged: camera = overhead scan after each pick '
+                             '(as on the real cell); sim = simulator poses (evaluation shortcut)')
     parser.add_argument('--careful',action='store_true',
                         help='Earlier, slower timing (free moves, waits, carries, scans)')
     parser.add_argument('--force-drop',action='store_true',
@@ -307,7 +310,8 @@ def main():
             else:
                 print(f"[recover] Backing off to the scan pose to rescan and retry "
                       f"({count}/{args.max_recoveries})",flush=True)
-            for q,jaw in recovery_steps(measured()[arm_idx],park_q,category): tick(q,jaw)
+            if np.max(np.abs(measured()[arm_idx]-park_q))>np.radians(1.):
+                for q,jaw in recovery_steps(measured()[arm_idx],park_q,category): tick(q,jaw)
             for _ in range(30): tick(park_q,C.JAW_OPEN)  # let a dropped object settle
             current_q=park_q.copy(); save()
 
@@ -340,8 +344,12 @@ def main():
                 culprits=[p for p in pending if failures_by_object[p['prim']] and p['prim'] in text]
                 if not culprits: raise
                 for p in culprits:
-                    centre=D.centre(*handles[p['prim']].get_world_pose(),p['category'],p.get('size'))
-                    if p.get('bin') and bins.in_bin(centre,p['bin']):
+                    if args.verify=='camera':
+                        seen=verify_placement(scanner.locate([p])[p['prim']],p)[0]
+                    else:
+                        centre=D.centre(*handles[p['prim']].get_world_pose(),p['category'],p.get('size'))
+                        seen=bool(p.get('bin')) and bins.in_bin(centre,p['bin'])
+                    if p.get('bin') and seen:
                         # Already resting in its own bin (fingers cannot reach in): done.
                         print(f"[recover] {p['prim']} is already in the {p['bin']} bin; counting it as placed",flush=True)
                         executed.append(p); pending=[q for q in pending if q['prim']!=p['prim']]
@@ -372,22 +380,44 @@ def main():
                         print('[guard] Objects moved since start: '+('; '.join(moved) or 'none'),flush=True)
                         print(f'[guard] Flange now {np.round(flange,3).tolist()}, '
                               f'tool axis {np.round(rotation@np.asarray(C.TOOL_AXIS),3).tolist()}',flush=True)
+                        if args.verify=='camera':
+                            print(f'[guard] (simulator, evaluation only) object moved '
+                                  f'{np.linalg.norm(delta):.1f} mm after the scan; continuing',flush=True)
+                            return
                         raise RuntimeError(f'Object moved after scan (before {phase}): true centre '
                             f'{np.round(centre[:2],4).tolist()} vs scanned {np.round(pick["xy"],4).tolist()}, '
                             f'off by dx={delta[0]:.2f} dy={delta[1]:.2f} mm; rescanning')
             started=time.monotonic()
             item=run_pick(app,world,arm,arm_idx,tick,measured,plan,
                           directory/f"{number:02d}_{pick['category']}_{pick['index']}.json",phase_hook=phase_guard,
-                          force_drop=args.force_drop and number==1)
+                          force_drop=args.force_drop and number==1,
+                          sim_checks_abort=args.verify=='sim')
             item['scan']=observations[pick['prim']]
             item['attempt']=failures_by_object[pick['prim']]+1
             item['cycle_s']=round(time.monotonic()-started,1)
             print(f"[sort] {pick['prim']} pick-and-place took {item['cycle_s']:.0f} s",flush=True)
+            item['sim_verified']=bool(item['complete'])
+            sight={}
+            if args.verify=='camera':
+                # Verification scan from the scan pose: where is the object now, and are
+                # the already-sorted objects still in place? (The simulator verdict is
+                # kept for evaluation only.)
+                if np.max(np.abs(measured()[arm_idx]-park_q))>np.radians(1.):
+                    # Pick stopped early (e.g. arm tracking): back off safely first.
+                    for q,jaw in recovery_steps(measured()[arm_idx],park_q,pick['category']): tick(q,jaw)
+                for _ in range(10): tick(park_q,C.JAW_OPEN)
+                sight=scanner.locate([pick]+[p for p in executed])
+                placed,why=verify_placement(sight[pick['prim']],pick)
+                item.update(camera_verified=placed,camera_reason=why,
+                            camera_sim_agree=placed==item['sim_verified'])
+                tag='' if placed==item['sim_verified'] else '  [simulator disagrees]'
+                print(f"[verify] Camera: {pick['prim']} {why} -> {'PLACED' if placed else 'NOT PLACED'}{tag}",flush=True)
+                item['complete']=placed
             report['objects'].append(item); save()
             if not item['complete']:
-                # Simulator pose checks only TRIGGER the retry; the new grasp target
-                # always comes from a fresh camera scan.
-                recover(pick['prim'],pick['category'],item.get('error') or 'pickup/placement not verified')
+                # The new grasp target always comes from a fresh camera scan.
+                reason=item.get('camera_reason') if args.verify=='camera' else item.get('error')
+                recover(pick['prim'],pick['category'],reason or 'pickup/placement not verified')
                 continue
             current_q=plan[1][-1][1][-1][0].copy()
             executed.append(pick)
@@ -398,7 +428,10 @@ def main():
             for p in list(executed):
                 metrics=pose_metrics(handles[p['prim']],p,baseline[p['prim']][2])
                 audit.append(dict(object=p['category'],index=p['index'],group=p['group'],**metrics))
-                if not metrics['verified']:
+                in_place=metrics['verified']
+                if args.verify=='camera' and p['prim'] in sight:
+                    in_place=verify_placement(sight[p['prim']],p)[0]
+                if not in_place:
                     print(f"[recover] Sorted {p['prim']} was knocked out of its slot; re-queueing it",flush=True)
                     executed.remove(p); pending.append(p)
                     failures_by_object[p['prim']]+=1
@@ -410,14 +443,25 @@ def main():
         report['final_audit']=[dict(object=p['category'],index=p['index'],group=p['group'],
             **pose_metrics(handles[p['prim']],p,baseline[p['prim']][2])) for p in executed]
         report['placed_objects']=len(executed)
+        report['verification']=args.verify
+        checks=[r for r in report['objects'] if 'camera_verified' in r]
+        if checks:
+            report['camera_sim_agreement']=dict(agree=sum(r['camera_sim_agree'] for r in checks),
+                                               checks=len(checks))
         report['sort_seconds']=round(time.monotonic()-sort_started,1)
         sim_s=tick_count/30
         report['performance'].update(sim_seconds=round(sim_s,1),
             wall_seconds=round(time.monotonic()-wall_started,1),
             wall_per_sim_second=round((time.monotonic()-wall_started)/max(sim_s,1e-9),2),
             speed_profile='careful' if args.careful else 'normal')
-        report['complete']=bool(len(executed)==object_count and not report['failed_objects']
-            and all(r['verified'] for r in report['final_audit']))
+        report['sim_final_audit_ok']=all(r['verified'] for r in report['final_audit'])
+        if args.verify=='camera':
+            final=scanner.locate(executed)
+            report['camera_final_audit']={p['prim']:verify_placement(final[p['prim']],p)[1] for p in executed}
+            audit_ok=all(verify_placement(final[p['prim']],p)[0] for p in executed)
+        else:
+            audit_ok=report['sim_final_audit_ok']
+        report['complete']=bool(len(executed)==object_count and not report['failed_objects'] and audit_ok)
     except Exception as exc:
         report['error']=str(exc); traceback.print_exc()
     finally:
@@ -428,6 +472,11 @@ def main():
               f"{len(report.get('recoveries',[]))} recoveries",flush=True)
         if report.get('failed_objects'):
             print(f"[sort] Gave up on: {', '.join(report['failed_objects'])}",flush=True)
+        agreement=report.get('camera_sim_agreement')
+        if agreement:
+            print(f"[sort] Verified by camera; the simulator agreed on {agreement['agree']}/"
+                  f"{agreement['checks']} checks; simulator final audit "
+                  f"{'OK' if report.get('sim_final_audit_ok') else 'NOT OK'}",flush=True)
         if report.get('sort_seconds'):
             m,s=divmod(int(report['sort_seconds']),60)
             print(f"[sort] Sorting time: {m} min {s} s (after start-up), "

@@ -92,6 +92,38 @@ def fit_mask(mask,kind,size=None):
                 measured_length_mm=float(long*1000),measured_width_mm=float(short*1000))
 
 
+def mask_centroid(mask, min_pixels=30):
+    """Lenient top-down read of one object: is it visible, and where (table XY)?
+    Unlike fit_mask it accepts any pose -- a cube tumbled against a bin wall,
+    a cap on its side -- because verification only needs the location."""
+    rows, cols = np.nonzero(mask)
+    if len(rows) < min_pixels:
+        return dict(found=False, pixels=int(len(rows)))
+    x = CENTER[0]+((cols.mean()+.5)/RES-.5)*WIDTH
+    y = CENTER[1]+(.5-(rows.mean()+.5)/RES)*WIDTH
+    return dict(found=True, pixels=int(len(rows)), xy=[float(x), float(y)])
+
+
+def verify_placement(observation, pick):
+    """Camera verdict for one placed object: (placed?, reason).
+    Bin objects: visible inside the right bin's pocket. Floor slots (vials):
+    centroid within 6 mm of the slot."""
+    import scan_sort_bins as B
+    if not observation.get('found'):
+        return False, 'not visible to the overhead camera'
+    xy = np.asarray(observation['xy'])
+    if pick.get('bin'):
+        (bx, by), _ = B.REAL_BINS[pick['bin']]
+        half = B.BIN_POCKET/2 - .002
+        if abs(xy[0]-bx) < half and abs(xy[1]-by) < half:
+            return True, f"seen inside the {pick['bin']} bin"
+        return False, (f"seen at ({xy[0]:.3f}, {xy[1]:.3f}) m, outside the {pick['bin']} bin")
+    error = float(np.linalg.norm(xy-np.asarray(pick['place_xy'])))
+    if error < .006:
+        return True, f'seen {error*1000:.1f} mm from its slot'
+    return False, f'seen {error*1000:.1f} mm from its slot'
+
+
 class Scanner:
     def __init__(self,stage,items,directory,save_images=False):
         from pxr import UsdGeom,Gf,Usd
@@ -128,8 +160,7 @@ class Scanner:
         finally:
             self.product.hydra_texture.set_updates_enabled(False)
 
-    def _capture(self,required,save=True):
-        import cv2
+    def _frame(self):
         # Render without advancing physics; leave timeline playing.
         self.rep.orchestrator.step(delta_time=0.0,pause_timeline=False)
         self.rep.orchestrator.step(delta_time=0.0,pause_timeline=False)
@@ -137,16 +168,35 @@ class Scanner:
         if not isinstance(raw,dict) or 'data' not in raw: raise RuntimeError('Segmentation camera returned no frame')
         data=np.asarray(raw['data']).squeeze()
         if data.shape!=(RES,RES): raise RuntimeError(f'Unexpected segmentation frame shape {data.shape}')
-        labels=raw.get('info',{}).get('idToLabels',{})
+        return data,raw.get('info',{}).get('idToLabels',{})
+
+    def _mask(self,data,labels,prim):
+        tag=self.tags[prim]
+        ids=[]
+        for identity,values in labels.items():
+            value=values.get('class','') if isinstance(values,dict) else values
+            tokens=value if isinstance(value,list) else str(value).split(',')
+            if tag in [str(v).strip() for v in tokens]: ids.append(int(identity))
+        return np.isin(data,ids)
+
+    def locate(self,items):
+        """One overhead frame; lenient location of each object (see mask_centroid)."""
+        self.product.hydra_texture.set_updates_enabled(True)
+        try:
+            data,labels=self._frame()
+        finally:
+            self.product.hydra_texture.set_updates_enabled(False)
+        output={p['prim']:mask_centroid(self._mask(data,labels,p['prim'])) for p in items}
+        self.number+=1
+        Path(str(self.directory/f'verify_{self.number:04d}')+'.json').write_text(json.dumps(output,indent=2))
+        return output
+
+    def _capture(self,required,save=True):
+        import cv2
+        data,labels=self._frame()
         output={};errors={}
         for p in required:
-            tag=self.tags[p['prim']]
-            ids=[]
-            for identity,values in labels.items():
-                value=values.get('class','') if isinstance(values,dict) else values
-                tokens=value if isinstance(value,list) else str(value).split(',')
-                if tag in [str(v).strip() for v in tokens]: ids.append(int(identity))
-            try: output[p['prim']]=fit_mask(np.isin(data,ids),p['category'],p.get('size'))
+            try: output[p['prim']]=fit_mask(self._mask(data,labels,p['prim']),p['category'],p.get('size'))
             except RuntimeError as exc: errors[p['prim']]=str(exc)
         self.number+=1
         if save:
