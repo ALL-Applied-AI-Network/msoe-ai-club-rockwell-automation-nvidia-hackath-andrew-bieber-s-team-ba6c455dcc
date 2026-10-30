@@ -35,7 +35,8 @@ def set_park_spread(direction):
     PARK_SPREAD = tuple(float(v) for v in direction)
 
 COLORS = {"cube_yellow": (0.95,0.8,0.05), "cube_red": (0.9,0.12,0.1),
-          "cube_blue": (0.12,0.35,0.9), "vial": (0.1,0.8,0.8), "cap": (0.8,0.3,0.8)}
+          "cube_blue": (0.12,0.35,0.9), "vial": (0.1,0.8,0.8), "cap": (0.8,0.3,0.8),
+          "screw": (0.35,0.35,0.38), "cube_large": (0.2,0.5,0.9)}
 
 
 def segments(pick, home):
@@ -57,10 +58,12 @@ def segments(pick, home):
 def inventory():
     used = Counter()
     result = []
-    for kind, count in (("cube",len(C.SORT_CUBES)), ("vial",len(C.SORT_VIALS)), ("cap",len(C.SORT_CAPS))):
+    for kind, count in (("screw",len(C.SORT_SCREWS)), ("cube",len(C.SORT_CUBES)),
+                        ("vial",len(C.SORT_VIALS)), ("cap",len(C.SORT_CAPS))):
         for index in range(count):
             pick = D.pick_spec(kind,index)
-            group = "cube_"+C.SORT_CUBES[index][2] if kind == "cube" else kind
+            group = (("cube_large" if pick["size"] != C.CUBE_EDGE else "cube_"+C.SORT_CUBES[index][2])
+                     if kind == "cube" else kind)
             pick["group"] = group
             pick["color"] = C.SORT_CUBES[index][2] if kind == "cube" else None
             pick["place_xy"] = list(SLOTS[group][used[group]])
@@ -139,14 +142,14 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
     try:
         def object_centre():
             position, quat = cube.get_world_pose()
-            return D.centre(position, quat, pick["category"])
+            return D.centre(position, quat, pick["category"], pick.get("size"))
 
         def in_gripper():
             """Object centre and long axis in the flange frame (diagnostics only)."""
             position, quat = cube.get_world_pose()
             w, x, y, z = quat
             axis = np.array([2*(x*z+y*w), 2*(y*z-x*w), 1-2*(x*x+y*y)])
-            centre = D.centre(position, quat, pick["category"]) - [0, 0, C.TABLE_TOP_Z]
+            centre = D.centre(position, quat, pick["category"], pick.get("size")) - [0, 0, C.TABLE_TOP_Z]
             rotation, flange = fk.fk(measured()[arm_idx])
             return rotation.T @ (centre-flange), rotation.T @ axis
 
@@ -230,7 +233,7 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
         w,x,y,z = quat
         axis = np.array([2*(x*z+y*w), 2*(y*z-x*w), 1-2*(x*x+y*y)])
         tilt = float(np.degrees(np.arccos(np.clip(axis[2], -1, 1))))
-        orientation_ok = abs(tilt-90) < 5 if pick["category"] == "vial" else tilt < 5
+        orientation_ok = lying_ok(pick["category"], tilt)
         report["tilt_deg"] = tilt
         if pick["category"] == "cube":
             yaw = float(np.degrees(np.arctan2(2*(x*y+z*w), 1-2*(y*y+z*z))))
@@ -257,13 +260,24 @@ def run_pick(app, world, arm, arm_idx, tick, measured, plan, output, phase_hook=
     return report
 
 
+def lying_ok(category, tilt):
+    """Object axis tilt from vertical (deg) is plausible for a settled object.
+    Vials lie flat; screws lie on the head rim, axis ~6 deg off horizontal."""
+    if category == 'vial': return abs(tilt-90) < 5
+    if category == 'screw': return abs(tilt-90) < 12
+    return tilt < 5
+
+
 def object_box(pick, placed=False):
     """Conservative object envelopes for offline clearance checking."""
     kind = pick['category']
     xy = pick['place_xy'] if placed else pick['xy']
     if kind == 'cube':
         yaw = 0. if placed else np.deg2rad(pick.get('scan_yaw_deg', C.SORT_CUBE_YAWS_DEG[pick['index']]))
-        size = [C.CUBE_EDGE]*3
+        size = [pick.get('size') or C.CUBE_EDGE]*3
+    elif kind == 'screw':
+        yaw = 0. if placed else np.deg2rad(pick.get('scan_yaw_deg', C.SORT_SCREWS[pick['index']][2]))
+        size = [C.SCREW_LENGTH, C.SCREW_HEAD_D, C.SCREW_HEAD_D]
     elif kind == 'vial':
         yaw = 0. if placed else np.deg2rad(pick.get('scan_yaw_deg', C.SORT_VIALS[pick['index']][2]))
         size = [C.VIAL_LENGTH, 2*C.VIAL_RADIUS, 2*C.VIAL_RADIUS]
@@ -354,14 +368,14 @@ def add_slot_markers(stage):
 
 def pose_metrics(handle,pick,reference_z):
     position,quat=handle.get_world_pose()
-    centre=D.centre(position,quat,pick['category'])
+    centre=D.centre(position,quat,pick['category'],pick.get('size'))
     w,x,y,z=quat
     tilt=float(np.degrees(np.arccos(np.clip(1-2*(x*x+y*y),-1,1))))
     xy=float(np.linalg.norm(centre[:2]-pick['place_xy']))
     dz=float(abs(centre[2]-reference_z))
     yaw=float(np.degrees(np.arctan2(2*(x*y+z*w),1-2*(y*y+z*z))))
     yaw_error=abs((yaw+45)%90-45)
-    orient=abs(tilt-90)<5 if pick['category']=='vial' else tilt<5
+    orient=lying_ok(pick['category'],tilt)
     if pick['category']=='cube': orient=orient and yaw_error<8
     return dict(centre_world_m=centre.tolist(),xy_error_mm=xy*1000,z_error_mm=dz*1000,
                 tilt_deg=tilt,yaw_error_deg_mod90=yaw_error,

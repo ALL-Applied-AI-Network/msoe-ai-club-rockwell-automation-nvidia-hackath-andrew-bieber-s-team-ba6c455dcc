@@ -96,6 +96,34 @@ FINGER_SET=dual    "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced
 Then run the full sort without `--only`. Physics behaviour is not yet confirmed
 in Isaac; check `runs/scan_sort_*/sort_report.json` and the per-object JSON files.
 
+## All lab objects (October 30)
+
+The spaced layout now contains every object on the organizer's CAD page
+(https://hackathon.sidclab.org/#resources/cad-models) at real size:
+
+| Object | Size | Count | Destination |
+|---|---|---:|---|
+| M6 × 30 countersunk screw (ISO 10642) | 30 mm, head Ø12, shank Ø6 | 2 | `screw` area (0.135, −0.50), no walls |
+| Cube | 10 mm | 6 | yellow / red / blue areas |
+| Cube | 16 mm | 1 | `cube_large` spot (0.06, −0.50), no walls |
+| Vial | Ø27.18 × 203 mm | 2 | `vial` area |
+| Vial cap | Ø31.75 flange, 15.7 mm | 2 | `cap` area |
+
+Screws use two explicit convex colliders (cone head + shank) and are gripped on
+the shank at mid-length with the narrow zone. Screws need `FINGER_SET=dual_v2`
+(the original `dual` narrow zone closes to 8 mm), so the layout skips them
+otherwise. The overhead scan fits a screw-shaped silhouette and checks each
+cube against its own size. The 50 × 50 × 55 mm bins are not added yet.
+
+Quick tests per object type, then the full sort:
+
+```bash
+FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced.py --only screw
+FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced.py --only cube
+FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced.py --only cap
+FINGER_SET=dual_v2 "$HOME/venvs/isaac-check/bin/python" -u demo_scan_sort_spaced.py
+```
+
 ## Validation boundary
 
 The revised code passed 33 existing host tests and nine new profile tests.

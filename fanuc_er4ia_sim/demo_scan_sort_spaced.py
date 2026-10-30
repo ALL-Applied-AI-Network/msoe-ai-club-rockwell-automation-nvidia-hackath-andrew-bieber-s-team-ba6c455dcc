@@ -18,8 +18,14 @@ def configure():
         (.23, .08, 'yellow'), (.23, .20, 'yellow'),
         (.35, .08, 'red'),    (.35, .20, 'red'),
         (.47, .08, 'blue'),   (.47, .20, 'blue'),
+        (.53, .01, 'blue', C.CUBE_LARGE_EDGE),  # 16 mm cube from the organizer CAD
     ]
-    C.SORT_CUBE_YAWS_DEG = [0., 26., 32., -23., 14., -36.]
+    C.SORT_CUBE_YAWS_DEG = [0., 26., 32., -23., 14., -36., 15.]
+    # M6 x 30 countersunk screws (centre x, y, axis yaw). Only dual_v2's narrow
+    # zone (5.2 mm closed) can grip the 6 mm shank; 'dual' closes to 8 mm.
+    C.SORT_SCREWS = [(.47, -.145, 0.), (.15, .24, 90.)] if C.FINGER_SET == 'dual_v2' else []
+    if not C.SORT_SCREWS:
+        print('[layout] Screws skipped: FINGER_SET=dual cannot grip a 6 mm shank', flush=True)
     # Long axes along X, centres separated by 150 mm in Y.
     C.SORT_VIALS = [(.32, -.05, 0.), (.32, -.20, 0.)]
     C.SORT_CAPS = [(.52, -.08), (.52, -.23)]
@@ -33,7 +39,7 @@ def main():
         raise SystemExit('Put this launcher beside your existing demo_scan_sort.py')
     sys.path.insert(0, str(root))
     configure()
-    print('[layout] Separated layout: 6 cubes, 2 parallel vials, 2 caps', flush=True)
+    print('[layout] Separated layout: 2 M6 screws, 6 x 10 mm + 1 x 16 mm cubes, 2 vials, 2 caps', flush=True)
     print('[layout] Existing scans, motion planning and collision gates remain active', flush=True)
     sys.argv[0] = str(target)
     runpy.run_path(str(target), run_name='__main__')

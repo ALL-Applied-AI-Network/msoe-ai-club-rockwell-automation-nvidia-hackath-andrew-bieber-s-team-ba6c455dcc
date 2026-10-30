@@ -16,7 +16,18 @@ def angle_error(a,b,kind):
     return 0. if kind=='cap' else abs((a-b+period/2)%period-period/2)
 
 
-def fit_mask(mask,kind):
+def screw_outline(xy,yaw_deg,head_first):
+    """Top-down screw silhouette as convex XY polygons: head trapezoid + shank."""
+    a=np.radians(yaw_deg); u=np.array([np.cos(a),np.sin(a)])*(1 if head_first else -1)
+    v=np.array([-u[1],u[0]]); c=np.asarray(xy); L=C.SCREW_LENGTH
+    hr,sr,hh=C.SCREW_HEAD_D/2,C.SCREW_SHANK_D/2,C.SCREW_HEAD_H
+    s0=c-u*L/2
+    head=[s0+v*hr,s0-v*hr,s0+u*hh-v*sr,s0+u*hh+v*sr]
+    shank=[s0+u*hh+v*sr,s0+u*hh-v*sr,c+u*L/2-v*sr,c+u*L/2+v*sr]
+    return [np.array(head),np.array(shank)]
+
+
+def fit_mask(mask,kind,size=None):
     import cv2
     rows,cols=np.nonzero(mask)
     if len(rows)<30: raise RuntimeError(f'{kind}: mask missing or too small')
@@ -33,8 +44,12 @@ def fit_mask(mask,kind):
     # come from the simulator; these ranges do not turn this into RGB recognition.
     vial_range = (C.VIAL_LENGTH-.012, C.VIAL_LENGTH+.010,
                   2*C.VIAL_RADIUS-.005, 2*C.VIAL_RADIUS+.007)
-    cube_range = (C.CUBE_EDGE-.003, C.CUBE_EDGE+.003)*2
-    ranges={'cube':cube_range,'vial':vial_range,'cap':(.028,.035,.028,.035)}
+    edge = size or C.CUBE_EDGE
+    cube_range = (edge-.003, edge+.003)*2
+    screw_range = (C.SCREW_LENGTH-.004, C.SCREW_LENGTH+.004,
+                   C.SCREW_HEAD_D-.003, C.SCREW_HEAD_D+.003)
+    ranges={'cube':cube_range,'vial':vial_range,'cap':(.028,.035,.028,.035),
+            'screw':screw_range}
     lo,hi,slo,shi=ranges[kind]
     if not lo<=long<=hi or not slo<=short<=shi:
         raise RuntimeError(f'{kind}: incomplete/occluded mask, envelope {long*1000:.1f} x {short*1000:.1f} mm')
@@ -50,9 +65,20 @@ def fit_mask(mask,kind):
         raise RuntimeError(f'{kind}: fragmented segmentation')
     expected=np.zeros(cropped.shape,np.uint8)
     corners=cv2.boxPoints(rect)
-    pixels=np.column_stack(((corners[:,0]-CENTER[0])/WIDTH*RES+RES/2-.5,
-                            RES/2-(corners[:,1]-CENTER[1])/WIDTH*RES-.5))
-    if kind=='cap':
+    to_px=lambda pts:np.column_stack(((pts[:,0]-CENTER[0])/WIDTH*RES+RES/2-.5,
+                                      RES/2-(pts[:,1]-CENTER[1])/WIDTH*RES-.5))
+    pixels=to_px(corners)
+    if kind=='screw':
+        # Head at either end; keep the better match.
+        best=None
+        for head_first in (True,False):
+            trial=np.zeros(cropped.shape,np.uint8)
+            for poly in screw_outline(xy,yaw,head_first):
+                cv2.fillConvexPoly(trial,np.round(to_px(poly)).astype(int)-np.array([x0,y0]),1)
+            score=np.logical_and(cropped,trial).sum()/max(1,np.logical_or(cropped,trial).sum())
+            if best is None or score>best[0]: best=(score,trial)
+        expected=best[1]
+    elif kind=='cap':
         pixel_center=((np.array(xy)-CENTER)/WIDTH*RES*np.array([1,-1])+RES/2-.5).round().astype(int)
         cv2.circle(expected,tuple(pixel_center-np.array([x0,y0])),round((long+short)/4/WIDTH*RES),1,-1)
     else:
@@ -60,7 +86,7 @@ def fit_mask(mask,kind):
     iou=float(np.logical_and(cropped,expected).sum()/max(1,np.logical_or(cropped,expected).sum()))
     if iou<.85: raise RuntimeError(f'{kind}: silhouette fit IoU {iou:.3f} below .85')
     if kind=='cube': yaw=(yaw+45)%90-45
-    elif kind=='vial': yaw=(yaw+90)%180-90
+    elif kind in ('vial','screw'): yaw=(yaw+90)%180-90
     else: yaw=0.
     return dict(xy=list(map(float,xy)),yaw_deg=float(yaw),pixels=int(len(rows)),silhouette_iou=iou,
                 measured_length_mm=float(long*1000),measured_width_mm=float(short*1000))
@@ -120,7 +146,7 @@ class Scanner:
                 value=values.get('class','') if isinstance(values,dict) else values
                 tokens=value if isinstance(value,list) else str(value).split(',')
                 if tag in [str(v).strip() for v in tokens]: ids.append(int(identity))
-            try: output[p['prim']]=fit_mask(np.isin(data,ids),p['category'])
+            try: output[p['prim']]=fit_mask(np.isin(data,ids),p['category'],p.get('size'))
             except RuntimeError as exc: errors[p['prim']]=str(exc)
         self.number+=1
         if save:

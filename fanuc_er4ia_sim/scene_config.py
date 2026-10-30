@@ -242,6 +242,18 @@ LASER_LENGTH = 0.032
 # -- screws disabled --
 SCREWS = []
 
+# -- task screws: M6 x 30 countersunk, ISO 10642 (organizer STL
+# assets/ISO10642-M6x30-countersunk-screw.stl). Overall length 30 mm including
+# the head; 90 deg head from 12 mm to the 6 mm shank over 3 mm.
+SCREW_LENGTH = 0.030
+SCREW_HEAD_D = 0.012
+SCREW_SHANK_D = 0.006
+SCREW_HEAD_H = 0.003
+SCREW_MASS = 0.0075  # steel, ~7.5 g
+# Each entry: (x_centre, y_centre, yaw_deg); yaw = screw axis from +X, centre =
+# midpoint of the 30 mm length. Empty by default; demo layouts add them.
+SORT_SCREWS = []
+
 # -- cube (cube.usda, 16 mm)
 # PHOTO 2026-10-08: real scene has 2 cubes, both yellow.
 CUBE_EDGE = 0.010  # hackathon: 2 mm clearance inside measured 12 mm open gap
@@ -280,6 +292,15 @@ CUBE_TIP_CLEARANCE = TIP_CLEARANCE
 CUBE_JAW_HALF_TARGET = max(JAW_CLOSED, CUBE_EDGE / 2 - FINGER_INNER_TIP - 0.0003)
 assert 2 * (JAW_OPEN + FINGER_INNER_TIP) > CUBE_EDGE * 2**0.5
 CUBE_MASS = 0.004
+# The cell also has 16 mm cubes (organizer CAD). A SORT_CUBES entry may carry a
+# 4th field, its edge in metres: (x, y, colour, edge).
+CUBE_LARGE_EDGE = 0.016
+CUBE_LARGE_MASS = 0.0045  # ABS, ~4.5 g
+
+
+def cube_edge(index):
+    entry = SORT_CUBES[index]
+    return entry[3] if len(entry) > 3 else CUBE_EDGE
 CUBE_MATS = ["red", "yellow", "blue"]  # variant names in the USD colour set
 SORT_CUBES = [
     (0.365769, 0.072782, "yellow"),

@@ -49,7 +49,7 @@ def tool_offset(category):
 
 def width(category):
     if category == 'cube': return C.CUBE_EDGE
-    if category == 'screw': return 0.006
+    if category == 'screw': return C.SCREW_SHANK_D
     if category == 'vial': return 2*C.VIAL_RADIUS
     if category == 'cap':
         from padded_fingers import cap_width_at
@@ -106,9 +106,13 @@ def pick_spec(category, index):
     """Configured-position diagnostic only; no measured poses used for commands."""
     if C.FINGER_SET not in ('dual', 'dual_v2'):
         raise ValueError('Launch with FINGER_SET=dual or dual_v2')
+    size=None
     if category == 'cube':
-        x,y,colour=C.SORT_CUBES[index]; yaw=C.SORT_CUBE_YAWS_DEG[index]
-        height=C.CUBE_TIP_CLEARANCE; prim=f'/World/SortCube{index}'
+        x,y=C.SORT_CUBES[index][:2]; yaw=C.SORT_CUBE_YAWS_DEG[index]
+        height=C.CUBE_TIP_CLEARANCE; prim=f'/World/SortCube{index}'; size=C.cube_edge(index)
+    elif category == 'screw':
+        # Grip the shank at the screw's mid-length (the scanned silhouette centre).
+        x,y,yaw=C.SORT_SCREWS[index]; height=C.TIP_CLEARANCE; prim=f'/World/SortScrew{index}'
     elif category == 'vial':
         x,y,yaw=C.SORT_VIALS[index]; height=0.003; prim=f'/World/SortVial{index}'
     elif category == 'cap':
@@ -119,16 +123,18 @@ def pick_spec(category, index):
     yaw=np.deg2rad(yaw)
     # Vial rail displacement is along its length; inactive wider zone clears it.
     spread=np.array([-np.sin(yaw),np.cos(yaw),0.])
-    return dict(category=category, index=index, prim=prim, xy=[x,y],
+    return dict(category=category, index=index, prim=prim, xy=[x,y], size=size,
                 pick_z=C.SURFACE_DZ+height, place_xy=[0.28,-0.32],
                 place_z=C.SURFACE_DZ+height, spread_dir=spread,
-                place_spread_dir=np.array([0.,1.,0.]), jaw_close=jaw_target(category))
+                place_spread_dir=np.array([0.,1.,0.]), jaw_close=jaw_target(category, size))
 
-def centre(position, quaternion, category):
-    """USD root origin -> geometric centre, used for evaluation only."""
+def centre(position, quaternion, category, size=None):
+    """USD root origin -> geometric centre, used for evaluation only.
+    size: cube edge (metres) when it differs from C.CUBE_EDGE."""
     w,x,y,z=quaternion
     local_z=np.array([2*(x*z+y*w),2*(y*z-x*w),1-2*(x*x+y*y)])
-    length={'cube':C.CUBE_EDGE,'vial':C.VIAL_LENGTH,'cap':C.CAP_HEIGHT}[category]
+    length={'cube':size or C.CUBE_EDGE,'vial':C.VIAL_LENGTH,'cap':C.CAP_HEIGHT,
+            'screw':C.SCREW_LENGTH}[category]
     return np.asarray(position)+local_z*length/2
 
 def report():

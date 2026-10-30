@@ -7,6 +7,9 @@ BINS={
  'cube_blue':((.36,-.36),(.096,.16),(.05,.25,.9)),
  'vial':((.23,.39),(.20,.18),(.02,.7,.7)),
  'cap':((.41,.33),(.13,.14),(.65,.15,.8)),
+ # M6 screws and the 16 mm cube: the free reachable strip south of the cube areas.
+ 'screw':((.135,-.50),(.10,.05),(.35,.35,.38)),
+ 'cube_large':((.06,-.50),(.035,.035),(.2,.5,.9)),
 }
 SLOTS={
  'cube_yellow':[(.16,-.32),(.16,-.40)],
@@ -14,12 +17,18 @@ SLOTS={
  'cube_blue':[(.36,-.32),(.36,-.40)],
  'vial':[(.23,.35),(.23,.43)],
  'cap':[(.41,.30),(.41,.36)],
+ 'screw':[(.11,-.50),(.16,-.50)],
+ 'cube_large':[(.06,-.50)],
 }
 if C.FINGER_SET == 'dual_v2':
     # Real 203 mm vials plus the inactive primary rail need a wider destination.
     # Keep the cap area separate; this is a v2 simulator fixture only.
     BINS['vial'] = ((.20,.39),(.27,.18),(.02,.7,.7))
     SLOTS['vial'] = [(.20,.35),(.20,.43)]
+# Areas marked on the floor only (no walls): small parts that cannot roll away.
+# The long wide-zone rail sits at fingertip height and cannot reach between
+# walls of an area this small. Real bins replace these areas in step 3.
+NO_WALLS={'screw','cube_large'}
 WALL_HEIGHT=.008
 WALL_THICK=.003
 
@@ -41,6 +50,7 @@ def vial_stops():
 def walls():
     yield from vial_stops()
     for group,((x,y),(w,d),color) in BINS.items():
+        if group in NO_WALLS: continue
         for name,size,xy in [
             ('Left',(WALL_THICK,d+2*WALL_THICK,WALL_HEIGHT),(x-w/2-WALL_THICK/2,y)),
             ('Right',(WALL_THICK,d+2*WALL_THICK,WALL_HEIGHT),(x+w/2+WALL_THICK/2,y)),
@@ -62,7 +72,8 @@ def build(stage):
     # Slots are visible outlines; give all 5 vertices an explicit width.
     for group,slots in SLOTS.items():
         for i,(x,y) in enumerate(slots):
-            hx,hy=(C.VIAL_LENGTH/2+.003,C.VIAL_RADIUS+.0035) if group=='vial' else ((.019,.019) if group=='cap' else (.009,.009))
+            hx,hy={'vial':(C.VIAL_LENGTH/2+.003,C.VIAL_RADIUS+.0035),'cap':(.019,.019),
+                   'screw':(C.SCREW_LENGTH/2+.003,C.SCREW_HEAD_D/2+.002)}.get(group,(.011,.011))
             z=C.TABLE_TOP_Z+C.SURFACE_DZ+.0002
             curve=UsdGeom.BasisCurves.Define(stage,f'/World/SortingAreas/{group}/Slot{i}')
             curve.CreateTypeAttr('linear');curve.CreateCurveVertexCountsAttr([5])

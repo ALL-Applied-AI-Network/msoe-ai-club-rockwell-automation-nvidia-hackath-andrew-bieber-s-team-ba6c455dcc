@@ -19,11 +19,12 @@ SLOTS=bins.SLOTS
 
 def inventory():
     used=Counter();items=[]
-    for kind,count in [('cube',len(C.SORT_CUBES)),('vial',len(C.SORT_VIALS)),('cap',len(C.SORT_CAPS))]:
+    for kind,count in [('screw',len(C.SORT_SCREWS)),('cube',len(C.SORT_CUBES)),
+                       ('vial',len(C.SORT_VIALS)),('cap',len(C.SORT_CAPS))]:
         for index in range(count):
             p=D.pick_spec(kind,index)
             p['color']=C.SORT_CUBES[index][2] if kind=='cube' else None
-            p['group']='cube_'+p['color'] if kind=='cube' else kind
+            p['group']=('cube_large' if p['size']!=C.CUBE_EDGE else 'cube_'+p['color']) if kind=='cube' else kind
             p['place_xy']=list(SLOTS[p['group']][used[p['group']]])
             used[p['group']]+=1;items.append(p)
     return items
@@ -54,7 +55,7 @@ def grasp_candidates(pick):
         perp=np.array([-spread[1],spread[0],0.])
         spreads+=[perp,-perp]
     variants=[dict(pick,force_spread=True,spread_dir=a.copy()) for a in spreads]
-    if pick['category'] in ('cube','cap'):  # vials must lie along their slot
+    if pick['category'] in ('cube','cap','screw'):  # vials must lie along their slot
         # Explicit placement directions keep their sign (force_place), so the
         # long rail can be pointed toward whichever side has room.
         for a in spreads:
@@ -167,7 +168,7 @@ def main():
     parser.add_argument('--check-only',action='store_true')
     parser.add_argument('--exit-on-finish',action='store_true')
     parser.add_argument('--start-delay',type=float,default=10.)
-    parser.add_argument('--only',choices=('cube','vial','cap'),
+    parser.add_argument('--only',choices=('screw','cube','vial','cap'),
                         help='Pick only this category (quick test); other objects stay as obstacles')
     args=parser.parse_args()
     if not np.isfinite(args.start_delay) or args.start_delay<0:
@@ -260,7 +261,7 @@ def main():
         for _ in range(60): tick(initial,C.JAW_OPEN)
         for p in bodies: UsdPhysics.RigidBodyAPI(p).CreateKinematicEnabledAttr().Set(False)
         for _ in range(max(30,round(args.start_delay*30))): tick(initial,C.JAW_OPEN)
-        baseline={pick['prim']:D.centre(*handles[pick['prim']].get_world_pose(),pick['category'])
+        baseline={pick['prim']:D.centre(*handles[pick['prim']].get_world_pose(),pick['category'],pick.get('size'))
                   for _,_,pick,_ in plans}
         items=[p for _,_,p,_ in plans]
         plans.clear()
@@ -293,13 +294,13 @@ def main():
                 # Evaluation-only GT guard: can abort, never correct a command.
                 if phase in ('descend','close'):
                     position,quat=handles[pick['prim']].get_world_pose()
-                    centre=D.centre(position,quat,pick['category'])
+                    centre=D.centre(position,quat,pick['category'],pick.get('size'))
                     delta=(centre[:2]-np.asarray(pick['xy']))*1000
                     if np.linalg.norm(delta)>1.5:
                         # Evaluation only: which objects moved since the start, and by how much.
                         moved=[]
                         for p in items:
-                            c=D.centre(*handles[p['prim']].get_world_pose(),p['category'])
+                            c=D.centre(*handles[p['prim']].get_world_pose(),p['category'],p.get('size'))
                             shift=(c-baseline[p['prim']])*1000
                             if np.linalg.norm(shift[:2])>1.0:
                                 moved.append(f"{p['prim']} dx={shift[0]:.1f} dy={shift[1]:.1f} mm")
