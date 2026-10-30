@@ -939,7 +939,8 @@ def add_sort_objects(stage):
         UsdPhysics.CollisionAPI.Apply(coll.GetPrim())
         bind_physics_material(coll.GetPrim())
         grip_patch(coll.GetPrim())
-        make_dynamic(g.GetPrim(), C.VIAL_MASS, collide_self=False)
+        make_dynamic(g.GetPrim(), C.VIAL_MASS, collide_self=False,
+                     angular_damping=C.VIAL_ANGULAR_DAMPING)
 
     # ---- caps: lying flat (Z-up disc), origin = bottom face ----
     for i, (x, y) in enumerate(C.SORT_CAPS):

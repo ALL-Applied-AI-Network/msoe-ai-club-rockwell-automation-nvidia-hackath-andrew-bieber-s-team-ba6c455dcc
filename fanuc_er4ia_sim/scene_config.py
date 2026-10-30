@@ -296,6 +296,10 @@ if FINGER_SET == "dual_v2":
     VIAL_RADIUS = 0.02718 / 2
     VIAL_LENGTH = 0.203
 VIAL_MASS = 0.020
+# PhysX has no rolling resistance: a lying vial nudged at spawn kept rolling
+# ~1 mm/s and moved after it was scanned. Angular damping (1/s) stands in for
+# the real vial's rolling resistance on the mat; a roll dies out in ~1 s.
+VIAL_ANGULAR_DAMPING = 3.0
 SORT_VIALS = [
     (0.423296, -0.218227, 39.638288),
     (0.399653, -0.007706, 10.367641),
