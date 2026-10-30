@@ -188,6 +188,9 @@ def main():
     parser.add_argument('--verify',choices=('camera','sim'),default='camera',
                         help='How a pick is judged: camera = overhead scan after each pick '
                              '(as on the real cell); sim = simulator poses (evaluation shortcut)')
+    parser.add_argument('--anti-aliasing',type=int,choices=(0,1,2,3,4),default=0,
+                        help='Renderer AA: 0 off (default; avoids a DLSS GPU-memory leak on the '
+                             'large scan render), 3 DLSS for nicer video')
     parser.add_argument('--careful',action='store_true',
                         help='Earlier, slower timing (free moves, waits, carries, scans)')
     parser.add_argument('--force-drop',action='store_true',
@@ -230,9 +233,19 @@ def main():
     def save(): path.write_text(json.dumps(report,indent=2)+'\n')
     save()
     from isaacsim import SimulationApp
+    # anti_aliasing 0: DLSS (Isaac's default) kept allocating temporal buffers for
+    # the 3072 x 3072 scan render until the T4 ran out of memory after ~3 picks
+    # ("Out of GPU memory allocating resource 'Temporal depth'"). The scan reads
+    # object labels, so anti-aliasing adds nothing there.
     app=SimulationApp({'headless':args.headless,'limit_cpu_threads':2,
                        'renderer':'RaytracedLighting','width':960,'height':540,
+                       'anti_aliasing':args.anti_aliasing,
                        'disable_viewport_updates':args.headless})
+    try:
+        import carb
+        carb.settings.get_settings().set('/rtx/post/aa/op',args.anti_aliasing)
+    except Exception as exc:
+        print(f'[sort] Could not set anti-aliasing: {exc}',flush=True)
     world=None; scanner=None
     try:
         import omni.usd
