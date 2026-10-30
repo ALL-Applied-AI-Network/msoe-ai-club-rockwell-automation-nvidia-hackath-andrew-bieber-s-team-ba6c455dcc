@@ -30,6 +30,7 @@ def summarize(seed, report, status, wall_s, returncode):
         objects.append(dict(object=item.get('object'), index=item.get('index'), group=item.get('group'),
                             attempt=item.get('attempt'), complete=item.get('complete'),
                             camera_verified=item.get('camera_verified'),
+                            gpu_memory_mb=item.get('gpu_memory_mb'),
                             sim_verified=item.get('sim_verified'), cycle_s=item.get('cycle_s'),
                             reason=item.get('camera_reason') or item.get('error')))
     bench = report.get('benchmark') or {}
@@ -54,6 +55,8 @@ def main():
     parser.add_argument('--isaac-python', default=os.path.expanduser('~/venvs/isaac-check/bin/python'))
     parser.add_argument('--timeout', type=float, default=1800, help='Seconds before a trial is killed')
     parser.add_argument('--no-physics-variation', action='store_true')
+    parser.add_argument('--gui', action='store_true',
+                        help='Run trials with a small 10 fps viewport instead of headless (needs a desktop)')
     parser.add_argument('--retry-crashed', action='store_true', help='Re-run seeds that crashed or timed out')
     parser.add_argument('extra', nargs='*', help='Extra arguments for the sorter (after --)')
     args = parser.parse_args()
@@ -74,7 +77,8 @@ def main():
     for number, seed in enumerate(seeds, 1):
         run_dir = args.out/f'trial_{seed:05d}'
         run_dir.mkdir(parents=True, exist_ok=True)
-        cmd = [args.isaac_python, '-u', str(HERE/'demo_scan_sort_spaced.py'), '--headless', '--exit-on-finish',
+        cmd = [args.isaac_python, '-u', str(HERE/'demo_scan_sort_spaced.py'),
+               *(['--viewport-fps', '10'] if args.gui else ['--headless']), '--exit-on-finish',
                '--layout-seed', str(seed), '--run-dir', str(run_dir)]
         if not args.no_physics_variation:
             cmd += ['--physics-seed', str(seed)]

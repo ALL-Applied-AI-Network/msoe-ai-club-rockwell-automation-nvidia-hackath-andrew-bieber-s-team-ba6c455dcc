@@ -44,6 +44,16 @@ def park_pose():
     motion.set_park_spread(spread/np.linalg.norm(spread))
     return q
 
+def gpu_memory_mb():
+    """GPU memory in use (MB) per nvidia-smi, or None if unavailable."""
+    import subprocess
+    try:
+        out=subprocess.run(['nvidia-smi','--query-gpu=memory.used','--format=csv,noheader,nounits'],
+                           capture_output=True,text=True,timeout=10).stdout.split()
+        return int(out[0]) if out else None
+    except Exception:
+        return None
+
 def grasp_candidates(pick):
     """Grasp variants tried in order (same set at startup and at runtime).
 
@@ -274,8 +284,12 @@ def main():
             tick_count+=1
             # One motion frame = 1/30 s of physics, split into physics_hz/30 steps.
             substeps=args.physics_hz//30
+            # Headless runs still let Kit run a full update once per simulated second:
+            # without it, GPU resources from the high-resolution scan renders were never
+            # released and the T4 ran out of memory after ~3 picks.
+            every=30 if args.headless else render_every
             for k in range(substeps):
-                world.step(render=(k==substeps-1 and not args.headless and tick_count%render_every==0))
+                world.step(render=(k==substeps-1 and tick_count%every==0))
             if not args.headless: time.sleep(max(0,1/30-(time.monotonic()-start)))
         initial=plans[0][0]
         arm.set_joint_positions(command(initial,C.JAW_OPEN))  # Initialization only.
@@ -398,7 +412,9 @@ def main():
             item['scan']=observations[pick['prim']]
             item['attempt']=failures_by_object[pick['prim']]+1
             item['cycle_s']=round(time.monotonic()-started,1)
-            print(f"[sort] {pick['prim']} pick-and-place took {item['cycle_s']:.0f} s",flush=True)
+            item['gpu_memory_mb']=gpu_memory_mb()
+            print(f"[sort] {pick['prim']} pick-and-place took {item['cycle_s']:.0f} s; "
+                  f"GPU memory in use {item['gpu_memory_mb']} MB",flush=True)
             item['sim_verified']=bool(item['complete'])
             sight={}
             if args.verify=='camera':
