@@ -1,5 +1,11 @@
 # Dual-zone V2 printable finger prototype
 
+> **V2.1 (October 30):** the wide-zone rail and its pad now run **50 mm** along
+> the vial instead of 6 mm, extending away from the narrow rail. In simulation
+> the end-gripped real vial pivoted about 45° out of 6 mm pads; the long pad
+> resists that twist. The bridge is 20 mm tall (Z 25.8–45.8) to stiffen the longer
+> overhang. Pads come in two sizes (see below). Reprint both bodies and pads.
+
 This revision keeps Asher's two fixed contact zones on one parallel jaw mechanism,
 with the same **6 mm travel per jaw**, and changes their gaps to cover the actual
 CSI objects. It is an **engineering fit prototype**, not hardware validated for
@@ -12,11 +18,13 @@ robot operation. The original `feature/mvp2` and Asher designs remain separate.
 - `cad/left_body.stl` and `cad/right_body.stl`: one of each. Units are millimetres;
   do not scale. Left means the positive-Y stock jaw, viewed in the official STEP
   coordinate frame. Both STLs are oriented with the flat outer face on the bed.
-- `cad/contact_pad_quantity_4.stl`: four pads, each **6 × 32 × 1 mm**.
+- `cad/contact_pad_primary_quantity_2.stl`: two narrow-zone pads, **6 × 32 × 1 mm**.
+- `cad/contact_pad_wide_quantity_2.stl`: two wide-zone pads, **50 × 32 × 1 mm**.
   The finished compliant pad-plus-adhesive stack must total **1 mm**. A 1 mm
   printed pad plus additional adhesive changes both designed gaps. The same
   finished thickness can instead be obtained from accurately cut compliant sheet.
-- `cad/left_body.step`, `right_body.step`, and `contact_pad.step`: editable solids
+- `cad/left_body.step`, `right_body.step`, `contact_pad_primary.step` and
+  `contact_pad_wide.step`: editable solids
   in the original actuator coordinate frame, rather than print coordinates.
 - `cad/assembly_closed.step` and `assembly_open.step`: the complete geometric
   assembly, including the organizer's original actuator body and stock jaws.
@@ -41,9 +49,9 @@ package does not specify a rated polymer, infill, torque or pneumatic pressure.
 
 The two zones are **40 mm apart** along actuator STEP +X. Both fingertips end at
 **Z = 83.5 mm**, nominally 76 mm beyond the stock CAD body's front plane at Z = 7.5.
-Each rail is 6 mm thick along X. The open exterior span across the closing axis
+The narrow rail is 6 mm thick along X; the wide rail spans X = 37–87 mm (50 mm). The open exterior span across the closing axis
 is 48.9 mm; collision screening must include that exterior, not just the pad gap.
-The root bridge ends 47.7 mm above the fingertips. This clearance applies only
+The root bridge ends 37.7 mm above the fingertips. This clearance applies only
 with the fingers directed down and does not constitute a full-arm collision model.
 
 The real vial is **27.18 mm diameter × 203 mm long**. The organizer explicitly
@@ -55,7 +63,9 @@ For the long vial, using the wide zone at its centre would bring the inactive
 narrow zone into the vial. The proposed physical plan grips **81.5 mm
 from the vial centre** (20 mm in from the end), with the narrow zone a further 40 mm
 toward that same end. This leaves 17 mm nominal axial clearance from the narrow
-rail's nearest edge to the 203 mm vial end. It is a geometric proposal; stable
+rail's nearest edge to the 203 mm vial end. In V2.1 the 50 mm wide pad covers
+34.5–84.5 mm from the vial centre, so friction along the pad resists the vial's
+weight twisting it out of the grip. It is a geometric proposal; stable
 retention and the actual vial's end shape still require physical testing. A
 centre grasp requires a different finger arrangement or larger rail separation.
 

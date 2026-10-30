@@ -16,19 +16,26 @@ CAP_OUTER_WIDTH = C.FINGER_WIDTH
 # rail then lies 20 mm beyond the opposite near end of the cylinder.
 VIAL_CONTACT_OFFSET = 0.0815 if C.FINGER_SET == "dual_v2" else 0.0
 CAP_PICK_HEIGHT = 0.005
-BRIDGE_LENGTH = 0.0283 if C.FINGER_SET == "dual_v2" else 0.020
+# v2.1: the wide rail and its pad run 50 mm along the vial (instead of 6 mm),
+# extending away from the narrow rail toward the vial's centre. A 6 mm pad let
+# the off-centre-gripped vial pivot ~45 deg; the long pad resists that twist.
+WIDE_RAIL_LENGTH = 0.050 if C.FINGER_SET == "dual_v2" else C.FINGER_THICK
+# The taller bridge stiffens the longer overhang (CAD bridge 25.8-45.8 mm).
+BRIDGE_LENGTH = 0.0383 if C.FINGER_SET == "dual_v2" else 0.020
 
 def extra_boxes(sign):
     """(name, XYZ size, centre in finger-root frame, is_pad). Convex colliders."""
     L, W, t, thick = C.FINGER_LENGTH, CAP_OUTER_WIDTH, C.PAD_T, C.FINGER_THICK
     back = CAP_FACE + t
+    R = WIDE_RAIL_LENGTH
+    rail_z = ZONE_OFFSET - thick/2 + R/2  # starts at the old rail's near face
     return [
-        ("CapRail", (L, W-back, thick),
-         (L/2, sign*(W+back)/2, ZONE_OFFSET), False),
-        ("CapPad", (L-C.PAD_STEP_X, t, thick),
-         ((L+C.PAD_STEP_X)/2, sign*(CAP_FACE+t/2), ZONE_OFFSET), True),
-        ("Bridge", (BRIDGE_LENGTH, W-back, ZONE_OFFSET+thick),
-         (BRIDGE_LENGTH/2, sign*(W+back)/2, ZONE_OFFSET/2), False),
+        ("CapRail", (L, W-back, R),
+         (L/2, sign*(W+back)/2, rail_z), False),
+        ("CapPad", (L-C.PAD_STEP_X, t, R),
+         ((L+C.PAD_STEP_X)/2, sign*(CAP_FACE+t/2), rail_z), True),
+        ("Bridge", (BRIDGE_LENGTH, W-back, ZONE_OFFSET+R),
+         (BRIDGE_LENGTH/2, sign*(W+back)/2, (ZONE_OFFSET-thick+R)/2), False),
     ]
 
 def tool_offset(category):
@@ -81,10 +88,17 @@ def vial_hold():
     force = min(C.JAW_DRIVE_STIFF*squeeze('vial'), C.JAW_MAX_FORCE)  # per finger
     mu = min(C.SOFT_TIP_STATIC_FRIC, C.SOFT_TIP_DYNAMIC_FRIC)
     load = C.VIAL_MASS*9.81*1.5
-    twist_needed = load*VIAL_CONTACT_OFFSET
-    twist_capacity = 2*mu*force*C.GRIP_PATCH_RADIUS
+    if C.FINGER_SET == 'dual_v2':
+        # Long pad: weight acts at the pad's centre, friction spread over its length
+        # (uniform pressure: mean lever = length/4 per finger).
+        lever = VIAL_CONTACT_OFFSET - (WIDE_RAIL_LENGTH - C.FINGER_THICK)/2
+        twist_capacity = 2*mu*force*WIDE_RAIL_LENGTH/4
+    else:
+        lever = VIAL_CONTACT_OFFSET
+        twist_capacity = 2*mu*force*C.GRIP_PATCH_RADIUS
+    twist_needed = load*lever
     slip_capacity = 2*mu*force
-    return dict(grip_force_n=force, friction=mu, contact_offset_m=VIAL_CONTACT_OFFSET,
+    return dict(grip_force_n=force, friction=mu, contact_offset_m=lever,
                 slip_margin=slip_capacity/load,
                 twist_margin=(twist_capacity/twist_needed if twist_needed > 0 else float('inf')))
 
@@ -130,7 +144,7 @@ def report():
         print('Virtual vial-centre TCP: 121.5 mm from primary rail; off-centre grip stability unverified.')
     hold = vial_hold()
     print(f"Vial hold: {hold['grip_force_n']:.0f} N/finger, slip margin {hold['slip_margin']:.0f}x, "
-          f"twist margin {hold['twist_margin']:.1f}x (contact patch r={C.GRIP_PATCH_RADIUS*1000:g} mm)")
+          f"twist margin {hold['twist_margin']:.1f}x (wide pad {WIDE_RAIL_LENGTH*1000:g} mm long)")
     print('Cap flange 31.75 mm stays BELOW the tips; this zone cannot grip the flange.')
     print('Fixed sizes/orientations only. Physics and clutter clearance require Rosie validation.')
 if __name__=='__main__': report()

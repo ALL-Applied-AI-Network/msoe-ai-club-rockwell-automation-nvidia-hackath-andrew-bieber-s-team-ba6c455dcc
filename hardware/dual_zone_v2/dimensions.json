@@ -1,5 +1,5 @@
 {
-  "design": "CSI dual-zone V2 geometric prototype",
+  "design": "CSI dual-zone V2.1 geometric prototype (long wide-zone pad)",
   "units": "mm",
   "coordinate_frame": "Official SMC STEP: +Z distal/tool axis, Y jaw closing axis, +X secondary rail offset",
   "jaw_travel_each": 6.0,
@@ -10,7 +10,10 @@
   "mount_plate_z_start": 9.8,
   "stock_tongue_z_end": 24.8,
   "mount_hole_x": 0.0,
-  "mount_hole_z": [13.8, 20.8],
+  "mount_hole_z": [
+    13.8,
+    20.8
+  ],
   "mount_hole_diameter_print": 3.6,
   "stock_jaw_hole_diameter": 3.4,
   "stock_jaw_thickness": 5.0,
@@ -19,6 +22,7 @@
   "tip_z": 83.5,
   "rail_separation_x": 40.0,
   "rail_thickness_x": 6.0,
+  "wide_rail_length_x": 50.0,
   "primary_contact_y_closed": 2.6,
   "wide_contact_y_closed": 9.0,
   "finished_pad_stack_thickness": 1.0,
@@ -26,7 +30,7 @@
   "outer_backplane_y_closed": 18.45,
   "rail_start_z": 25.8,
   "bridge_z_start": 25.8,
-  "bridge_z_end": 35.8,
+  "bridge_z_end": 45.8,
   "bridge_inner_y_closed": 10.0,
   "primary_closed_gap": 5.2,
   "primary_open_gap": 17.2,

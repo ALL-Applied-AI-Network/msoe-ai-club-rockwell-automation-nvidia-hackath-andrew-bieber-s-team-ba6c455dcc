@@ -1,4 +1,8 @@
-"""Build the CSI dual-zone V2 geometric prototype with CadQuery 2.7.
+"""Build the CSI dual-zone V2.1 geometric prototype with CadQuery 2.7.
+
+V2.1: the wide-zone rail and its pad run wide_rail_length_x (50 mm) along +X,
+away from the narrow rail, instead of 6 mm. A 6 mm pad let the end-gripped
+real vial pivot out of the fingers in simulation; the long pad resists that.
 
 Millimetres throughout. This preserves the real SMC jaw's 6 mm travel and
 mounts outside its two stock D2 through-holes. It does not establish strength,
@@ -39,20 +43,30 @@ def derived_gaps():
                                ('wide', D['wide_contact_y_closed']))}
 
 
+def rail_span(zone):
+    """X extent of a rail: the narrow rail is centred on 0; the wide rail starts
+    at its V2 near face and runs wide_rail_length_x along +X."""
+    t = D["rail_thickness_x"]/2
+    if zone == 'primary':
+        return -t, t
+    x0 = D["rail_separation_x"]-t
+    return x0, x0+D["wide_rail_length_x"]
+
+
 def make_positive_body():
     """Positive-Y jaw attachment, in the fully closed SMC coordinate frame."""
     w = D["mount_plate_width_x"]/2
     back = D["outer_backplane_y_closed"]
     mount = box(-w, w, D["mount_outer_y_closed"], back,
                 D["mount_plate_z_start"], D["bridge_z_end"])
-    t = D["rail_thickness_x"]/2
     components = [mount]
-    for x, face in ((0, D["primary_contact_y_closed"]),
-                    (D["rail_separation_x"], D["wide_contact_y_closed"])):
-        components.append(box(x-t, x+t,
+    for zone, face in (('primary', D["primary_contact_y_closed"]),
+                       ('wide', D["wide_contact_y_closed"])):
+        x0, x1 = rail_span(zone)
+        components.append(box(x0, x1,
             face+D["finished_pad_stack_thickness"], back,
             D["rail_start_z"], D["tip_z"]))
-    components.append(box(-w, D["rail_separation_x"]+t,
+    components.append(box(-w, rail_span('wide')[1],
         D["bridge_inner_y_closed"], back,
         D["bridge_z_start"], D["bridge_z_end"]))
     body = components[0].fuse(*components[1:]).clean()
@@ -62,11 +76,10 @@ def make_positive_body():
 
 
 def make_positive_pads():
-    t = D["rail_thickness_x"]/2
-    return [box(x-t, x+t, face, face+D["finished_pad_stack_thickness"],
+    return [box(*rail_span(zone), face, face+D["finished_pad_stack_thickness"],
         D["tip_z"]-D["pad_length_z"], D["tip_z"])
-        for x, face in ((0, D["primary_contact_y_closed"]),
-                       (D["rail_separation_x"], D["wide_contact_y_closed"]))]
+        for zone, face in (('primary', D["primary_contact_y_closed"]),
+                           ('wide', D["wide_contact_y_closed"]))]
 
 
 def print_orientation(shape, sign=1):
@@ -181,11 +194,13 @@ def main():
         report['solid_checks'][name] = validate_shape(part, name)
         report['mesh_checks'][name] = save_stl(print_orientation(part, sign), out/f'{name}.stl')
         cq.exporters.export(part, str(out/f'{name}.step'))
-    # One pad STL, quantity FOUR. Finished thickness includes any adhesive stack.
-    pad = box(0, D['rail_thickness_x'], 0, D['pad_length_z'],
-              0, D['finished_pad_stack_thickness'])
-    report['mesh_checks']['contact_pad_quantity_4'] = save_stl(pad, out/'contact_pad_quantity_4.stl')
-    cq.exporters.export(pad, str(out/'contact_pad.step'))
+    # Two pad sizes, quantity TWO each. Finished thickness includes any adhesive.
+    for zone in ('primary', 'wide'):
+        x0, x1 = rail_span(zone)
+        pad = box(0, x1-x0, 0, D['pad_length_z'], 0, D['finished_pad_stack_thickness'])
+        name = f'contact_pad_{zone}_quantity_2'
+        report['mesh_checks'][name] = save_stl(pad, out/f'{name}.stl')
+        cq.exporters.export(pad, str(out/f'contact_pad_{zone}.step'))
     # Exact tongue mount alone, first physical check before the complete parts.
     w = D['mount_plate_width_x']/2
     coupon = box(-w, w, D['mount_outer_y_closed'], D['outer_backplane_y_closed'],
@@ -217,6 +232,7 @@ def main():
     report['bridge_clearance_above_tip_mm'] = D['tip_z']-D['bridge_z_end']
     report['low_rail_open_envelope_mm'] = {
         'thickness_along_offset':D['rail_thickness_x'],
+        'wide_rail_length_along_offset':D['wide_rail_length_x'],
         'full_outer_width':2*(D['outer_backplane_y_closed']+D['jaw_travel_each']),
         'offset':D['rail_separation_x']}
     report['nominal_object_fit'] = []
@@ -238,14 +254,18 @@ def main():
             binary_physical_command='close; jaw position is not controlled',geometric_fit=fits))
     vial_half = D['real_vial_length']/2
     grasp_bias = vial_half-D['vial_grasp_inset_from_end']
+    near, far = rail_span('wide')
     report['vial_end_grasp'] = dict(centre_to_contact_mm=grasp_bias,
+        wide_pad_span_from_vial_centre_mm=[grasp_bias-(far-D['rail_separation_x']),
+                                           grasp_bias+(D['rail_separation_x']-near)],
         inset_from_end_mm=D['vial_grasp_inset_from_end'],
         inactive_rail_axial_clearance_mm=grasp_bias+D['rail_separation_x']-
             D['rail_thickness_x']/2-vial_half,
         physical_retention_verified=False)
     report['limits'] = ['No physical mounting or gripping test', 'No structural or fatigue analysis',
                         'Reference is stock D2 actuator CAD, not a survey of the installed cell',
-                        'Requires four finished 1 mm pads; adhesive thickness is included',
+                        'Requires four finished 1 mm pads (2 narrow, 2 wide); adhesive thickness is included',
+                        'Long wide rail and bridge overhang: print strength not analysed',
                         'Physical TCP and both grip-zone offsets require calibration',
                         'Real vial needs end-biased grasp so inactive narrow rail clears its length']
     (ROOT/'cad_validation.json').write_text(json.dumps(report,indent=2)+'\n')

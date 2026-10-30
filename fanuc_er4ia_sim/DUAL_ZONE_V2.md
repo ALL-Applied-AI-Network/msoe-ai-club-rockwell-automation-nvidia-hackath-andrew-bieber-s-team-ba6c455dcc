@@ -77,6 +77,12 @@ Vials were dropping or not lifting. Changes:
   now uses a 24-sided prism (flats at the real 27.18 mm), so pads grip
   face-to-face and the vial rests on a flat. With the round collider the vial
   lifted but pivoted 47° in the grip.
+- **Long wide-zone pad (V2.1 hardware).** Even with the faceted collider the
+  vial pivoted ~44° in 6 mm pads. The wide rail and pad now run 50 mm along the
+  vial toward its centre (`dual_zone.WIDE_RAIL_LENGTH`; CAD in
+  `hardware/dual_zone_v2`). Vial cradle stops moved to 16–24 mm from the slot
+  centre to clear the pad, and the planner tries more pick/place finger
+  directions so the long rail stays inside the sorting-area walls.
 - **Scan/park and settling fixes.** The scan park pose no longer hides the vial,
   task objects never sleep, and pick-time handles no longer reset object poses.
 

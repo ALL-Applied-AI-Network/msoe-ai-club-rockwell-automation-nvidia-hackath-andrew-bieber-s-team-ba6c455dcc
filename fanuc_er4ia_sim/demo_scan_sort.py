@@ -39,22 +39,41 @@ def park_pose():
     motion.set_park_spread(spread/np.linalg.norm(spread))
     return q
 
-def grasp_directions(pick):
-    """Finger directions tried for a grasp, in order (same set at startup and runtime)."""
-    directions=[pick['spread_dir'],-pick['spread_dir']]
-    # Round cap plugs permit an additional pair of perpendicular grasps.
-    if pick['category']=='cap':
-        directions+=[np.array([1.,0.,0.]),np.array([-1.,0.,0.])]
-    return directions
+def grasp_candidates(pick):
+    """Grasp variants tried in order (same set at startup and at runtime).
 
-def plan_any(pick,previous):
-    """Startup plan: preferred direction first, then the runtime fallbacks."""
-    try: return trajectory(pick,previous)
-    except RuntimeError as first:
-        for direction in grasp_directions(pick):
-            try: return trajectory(dict(pick,force_spread=True,spread_dir=direction.copy()),previous)
-            except RuntimeError: pass
-        raise first
+    Each varies the finger direction at pickup and at placement. The wide-zone
+    rail reaches up to 87 mm sideways, so the arm may need to turn the fingers
+    to keep it inside a sorting area's walls.
+    """
+    spread=np.asarray(pick['spread_dir'],float)
+    spreads=[spread,-spread]
+    if pick['category']=='cap':  # round plug: any direction
+        spreads+=[np.array([1.,0.,0.]),np.array([-1.,0.,0.])]
+    elif pick['category']=='cube':  # square: the other face pair works too
+        perp=np.array([-spread[1],spread[0],0.])
+        spreads+=[perp,-perp]
+    variants=[dict(pick,force_spread=True,spread_dir=a.copy()) for a in spreads]
+    if pick['category'] in ('cube','cap'):  # vials must lie along their slot
+        # Explicit placement directions keep their sign (force_place), so the
+        # long rail can be pointed toward whichever side has room.
+        for a in spreads:
+            for b in ((1.,0.,0.),(-1.,0.,0.),(0.,1.,0.),(0.,-1.,0.)):
+                variants.append(dict(pick,force_spread=True,spread_dir=a.copy(),
+                                     place_spread_dir=np.array(b),force_place=True))
+    return variants
+
+def plan_any(pick,previous,obstacles=None):
+    """Startup plan: preferred grasp first, then the runtime fallbacks.
+    With obstacles, a plan must also pass the wall/object clearance check."""
+    failures=[]
+    for candidate in [dict(pick)]+grasp_candidates(pick):
+        try:
+            plan=trajectory(candidate,previous)
+            if obstacles is not None: check_path(plan,obstacles)
+            return plan
+        except RuntimeError as exc: failures.append(str(exc))
+    raise RuntimeError(f"No valid grasp for {pick['prim']}: {failures[0]}")
 
 def from_scan(template,observation):
     p=dict(template)
@@ -151,16 +170,16 @@ def main():
     if not np.isfinite(args.start_delay) or args.start_delay<0:
         parser.error('--start-delay must be finite and nonnegative')
     plans=[]; previous=park_pose()
-    for pick in inventory():
-        plan=plan_any(pick,previous)
+    items=inventory()
+    for i,pick in enumerate(items):
+        # Earlier objects are already in their destinations; later ones are still out.
+        obstacles=[dict(p,xy=p['place_xy'],scan_yaw_deg=0.) if j<i else p
+                   for j,p in enumerate(items) if j!=i]
+        plan=plan_any(pick,previous,obstacles)
         previous=plan[1][-1][1][-1][0].copy()
         plans.append(plan)
         print(f"[sort] PLAN {pick['category']} {pick['index']} -> {pick['group']} {pick['place_xy']}; "
               f"IK error {plan[3]*1000:.3f} mm",flush=True)
-    for i,plan in enumerate(plans):
-        obstacles=[dict(p,xy=p['place_xy'],scan_yaw_deg=0.) if j<i else p
-                   for j,(_,_,p,_) in enumerate(plans) if j!=i]
-        check_path(plan,obstacles)
     print('[scan] Nominal IK and wall/object clearance checks passed.',flush=True)
     if args.check_only:
         print('[sort] Host checks passed; physics and full-arm collisions remain unverified.',flush=True)
@@ -252,8 +271,7 @@ def main():
                 pick=next(p for p in snapshot if p['prim']==template['prim'])
                 obstacles=[p for p in snapshot if p['prim']!=pick['prim']]
                 failures=[]
-                for direction in grasp_directions(pick):
-                    candidate=dict(pick,force_spread=True,spread_dir=direction.copy())
+                for candidate in grasp_candidates(pick):
                     try:
                         plan=trajectory(candidate,current_q)
                         check_path(plan,obstacles)

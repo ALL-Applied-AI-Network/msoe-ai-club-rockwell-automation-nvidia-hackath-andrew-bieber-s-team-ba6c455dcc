@@ -50,7 +50,7 @@ cv2.rectangle(mask,(RES//2-int(half[0]),RES//2-int(half[1])),
 observed = fit_mask(mask.astype(bool),'vial')
 print(json.dumps(dict(profile=C.FINGER_SET,primary_gap=[2*C.PAD_FACE,2*(C.PAD_FACE+C.JAW_OPEN)],
     secondary_gap=[2*D.CAP_FACE,2*(D.CAP_FACE+C.JAW_OPEN)],stroke=C.JAW_STROKE,
-    stock_width=C.FINGER_WIDTH,wide_stock=D.CAP_OUTER_WIDTH,
+    stock_width=C.FINGER_WIDTH,wide_stock=D.CAP_OUTER_WIDTH,wide_rail=D.WIDE_RAIL_LENGTH,
     backing=D.CAP_OUTER_WIDTH-D.CAP_FACE-C.PAD_T,bridge=D.BRIDGE_LENGTH,
     vial=[2*C.VIAL_RADIUS,C.VIAL_LENGTH],offsets={k:D.tool_offset(k).tolist() for k in ('cube','vial','cap')},
     fit={k:jaw(k) for k in ('screw','cube','vial','cap')},cube16=jaw('cube',.016),
@@ -100,7 +100,7 @@ class DualZoneProfileTests(unittest.TestCase):
         self.assertEqual(revised['stock_width'], .01845)
         self.assertEqual(revised['wide_stock'], .01845)
         self.assertGreaterEqual(revised['backing'], .004)
-        self.assertAlmostEqual(revised['bridge'], .0283)
+        self.assertAlmostEqual(revised['bridge'], .0383)
 
     def test_all_supported_diameters_have_an_in_stroke_jaw_target(self):
         revised = self.profiles['dual_v2']
@@ -122,6 +122,13 @@ class DualZoneProfileTests(unittest.TestCase):
                 self.assertGreaterEqual(hold['grip_force_n'], 20.)
                 self.assertGreaterEqual(hold['slip_margin'], 10.)
                 self.assertGreaterEqual(hold['twist_margin'], 5.)
+
+    def test_wide_rail_runs_along_the_vial_toward_its_centre(self):
+        self.assertAlmostEqual(self.profiles['dual']['wide_rail'], .006)
+        revised = self.profiles['dual_v2']
+        self.assertAlmostEqual(revised['wide_rail'], .050)
+        # Pad spans 34.5-84.5 mm from the vial centre; inactive rail still clears the end.
+        self.assertEqual(revised['inactive_collisions'], [])
 
     def test_invalid_sizes_are_rejected(self):
         self.assertTrue(all(self.profiles['dual_v2']['rejects']))

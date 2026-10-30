@@ -88,7 +88,7 @@ def trajectory(pick, previous=None):
     # Choose a symmetric spread direction nearest the home orientation.
     if not pick.get("force_spread",False) and np.dot(fk.fk(q)[0] @ np.asarray(C.FINGER_SPREAD_AXIS), pick["spread_dir"]) < 0:
         pick["spread_dir"] = -pick["spread_dir"]
-    if np.dot(pick["spread_dir"], pick["place_spread_dir"]) < 0:
+    if not pick.get("force_place", False) and np.dot(pick["spread_dir"], pick["place_spread_dir"]) < 0:
         pick["place_spread_dir"] = -pick["place_spread_dir"]
     phases = []
     worst = 0.0

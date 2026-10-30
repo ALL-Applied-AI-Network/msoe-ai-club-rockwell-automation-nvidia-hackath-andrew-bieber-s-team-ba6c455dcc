@@ -27,7 +27,9 @@ WALL_THICK=.003
 # Inner faces at +/-11 mm; radius 8.5 mm gives 2.5 mm lateral travel.
 # No raised floor: the cylinder remains supported by the original table.
 def vial_stops():
-    end_offset = .065 if C.FINGER_SET == 'dual_v2' else .060
+    # v2: the 50 mm wide pad covers 34.5-84.5 mm from the vial centre on one
+    # side, so the stops sit near the middle (16-24 mm), clear of it.
+    end_offset = .020 if C.FINGER_SET == 'dual_v2' else .060
     side_offset = C.VIAL_RADIUS + .0045
     for i,(x,y) in enumerate(SLOTS['vial']):
         for end in (-1,1):

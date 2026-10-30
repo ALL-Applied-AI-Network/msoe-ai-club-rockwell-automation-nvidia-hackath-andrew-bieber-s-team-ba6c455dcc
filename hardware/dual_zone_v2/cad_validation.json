@@ -1,5 +1,5 @@
 {
-  "design": "CSI dual-zone V2 geometric prototype",
+  "design": "CSI dual-zone V2.1 geometric prototype (long wide-zone pad)",
   "units": "mm",
   "scope": "geometric CAD checks only",
   "stock_source": "https://hackathon.sidclab.org/files/SMC-MHZL2-16D2.step",
@@ -8,12 +8,12 @@
     "left_body": {
       "valid": true,
       "solids": 1,
-      "volume_mm3": 12222.814877628429
+      "volume_mm3": 36802.17487762842
     },
     "right_body": {
       "valid": true,
       "solids": 1,
-      "volume_mm3": 12222.814877628429
+      "volume_mm3": 36802.17487762842
     },
     "mounting_coupon": {
       "valid": true,
@@ -25,9 +25,9 @@
     "left_body": {
       "triangles": 1328,
       "boundary_or_nonmanifold_edges": 0,
-      "signed_volume_mm3": 12222.8466403914,
+      "signed_volume_mm3": 36802.204950938285,
       "extents_mm": [
-        49.0,
+        93.0,
         73.69999694824219,
         14.850000381469727
       ]
@@ -35,19 +35,29 @@
     "right_body": {
       "triangles": 1328,
       "boundary_or_nonmanifold_edges": 0,
-      "signed_volume_mm3": 12222.846902652784,
+      "signed_volume_mm3": 36802.20663150408,
       "extents_mm": [
-        49.0,
+        93.0,
         73.69999694824219,
         14.850000381469727
       ]
     },
-    "contact_pad_quantity_4": {
+    "contact_pad_primary_quantity_2": {
       "triangles": 12,
       "boundary_or_nonmanifold_edges": 0,
       "signed_volume_mm3": 192.0,
       "extents_mm": [
         6.0,
+        32.0,
+        1.0
+      ]
+    },
+    "contact_pad_wide_quantity_2": {
+      "triangles": 12,
+      "boundary_or_nonmanifold_edges": 0,
+      "signed_volume_mm3": 1600.0,
+      "extents_mm": [
+        50.0,
         32.0,
         1.0
       ]
@@ -162,9 +172,10 @@
     "mounting": "outside each stock D2 tongue"
   },
   "tip_z_stock_step_mm": 83.5,
-  "bridge_clearance_above_tip_mm": 47.7,
+  "bridge_clearance_above_tip_mm": 37.7,
   "low_rail_open_envelope_mm": {
     "thickness_along_offset": 6.0,
+    "wide_rail_length_along_offset": 50.0,
     "full_outer_width": 48.9,
     "offset": 40.0
   },
@@ -235,6 +246,10 @@
   ],
   "vial_end_grasp": {
     "centre_to_contact_mm": 81.5,
+    "wide_pad_span_from_vial_centre_mm": [
+      34.5,
+      84.5
+    ],
     "inset_from_end_mm": 20.0,
     "inactive_rail_axial_clearance_mm": 17.0,
     "physical_retention_verified": false
@@ -243,7 +258,8 @@
     "No physical mounting or gripping test",
     "No structural or fatigue analysis",
     "Reference is stock D2 actuator CAD, not a survey of the installed cell",
-    "Requires four finished 1 mm pads; adhesive thickness is included",
+    "Requires four finished 1 mm pads (2 narrow, 2 wide); adhesive thickness is included",
+    "Long wide rail and bridge overhang: print strength not analysed",
     "Physical TCP and both grip-zone offsets require calibration",
     "Real vial needs end-biased grasp so inactive narrow rail clears its length"
   ]

@@ -65,7 +65,7 @@ def main():
         ax.set_title(subtitle,pad=0,color=COLORS['ink'],fontsize=15)
     fig.suptitle('Dual-zone V2 · printable finger prototype',fontsize=24,fontweight='bold',
                  x=.05,y=.97,ha='left',color=COLORS['ink'])
-    fig.text(.05,.91,'Blue: two printed bodies     Amber: four 1 mm contact pads     Grey: official SMC MHZL2-16D2 CAD',
+    fig.text(.05,.91,'Blue: two printed bodies     Amber: four 1 mm contact pads (2 narrow, 2 wide)     Grey: official SMC MHZL2-16D2 CAD',
              color='#4b6072',fontsize=12)
     fig.text(.05,.07,'Same 6 mm travel per jaw. Narrow zone: M6 shafts and 9–16 mm cubes. Wide zone: cap plugs and the real Ø27.18 mm vial.',
              color=COLORS['ink'],fontsize=11)
@@ -77,21 +77,22 @@ def main():
 
     fig,(ax,bx)=plt.subplots(1,2,figsize=(15,8),gridspec_kw={'width_ratios':[1.4,1]},facecolor='white')
     for sign in (-1,1):
-        for x,face in ((0,2.6),(40,9)):
+        for x,width,face in ((-3,6,2.6),(37,D['wide_rail_length_x'],9)):
             if sign>0:
-                ax.add_patch(Rectangle((x-3,face+1),6,18.45-face-1,facecolor=COLORS['body']))
-                ax.add_patch(Rectangle((x-3,face),6,1,facecolor=COLORS['pad']))
+                ax.add_patch(Rectangle((x,face+1),width,18.45-face-1,facecolor=COLORS['body']))
+                ax.add_patch(Rectangle((x,face),width,1,facecolor=COLORS['pad']))
             else:
-                ax.add_patch(Rectangle((x-3,-18.45),6,18.45-face-1,facecolor=COLORS['body']))
-                ax.add_patch(Rectangle((x-3,-face-1),6,1,facecolor=COLORS['pad']))
+                ax.add_patch(Rectangle((x,-18.45),width,18.45-face-1,facecolor=COLORS['body']))
+                ax.add_patch(Rectangle((x,-face-1),width,1,facecolor=COLORS['pad']))
     dim(ax,(0,-2.6),(0,2.6),'5.2',(8,0))
     dim(ax,(40,-9),(40,9),'18.0',(9,0))
     dim(ax,(0,-25),(40,-25),'40.0',(0,-3))
+    dim(ax,(37,-31),(37+D['wide_rail_length_x'],-31),f"{D['wide_rail_length_x']:.1f}",(0,-3))
     ax.text(0,22,'NARROW',ha='center',fontsize=12,weight='bold',color=COLORS['ink'])
     ax.text(40,22,'WIDE',ha='center',fontsize=12,weight='bold',color=COLORS['ink'])
     ax.text(0,27,'17.2 open',ha='center',fontsize=11,color='#4b6072')
     ax.text(40,27,'30.0 open',ha='center',fontsize=11,color='#4b6072')
-    ax.set(xlim=(-14,61),ylim=(-36,34));ax.set_aspect('equal');ax.axis('off')
+    ax.set(xlim=(-14,97),ylim=(-40,34));ax.set_aspect('equal');ax.axis('off')
     ax.set_title('Contact cross-section · closed position',fontsize=16,color=COLORS['ink'],pad=20)
 
     bx.add_patch(Rectangle((0,0),12,15,facecolor='#dbe8f2',edgecolor=COLORS['body'],lw=2))
