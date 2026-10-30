@@ -300,6 +300,8 @@ VIAL_MASS = 0.020
 # ~1 mm/s and moved after it was scanned. Angular damping (1/s) stands in for
 # the real vial's rolling resistance on the mat; a roll dies out in ~1 s.
 VIAL_ANGULAR_DAMPING = 3.0
+# Spawn roll about the vial's own axis (deg); see cell.add_sort_objects.
+VIAL_SPAWN_ROLL_DEG = 7.0
 SORT_VIALS = [
     (0.423296, -0.218227, 39.638288),
     (0.399653, -0.007706, 10.367641),

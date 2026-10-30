@@ -321,6 +321,9 @@ def make_dynamic(
     px.CreateLinearDampingAttr().Set(linear_damping)
     px.CreateSolverPositionIterationCountAttr().Set(16)
     px.CreateSolverVelocityIterationCountAttr().Set(2)
+    # Never sleep: a sleeping body reads as perfectly still to the pre-grasp
+    # scan, then shifts when the fingers wake it.
+    px.CreateSleepThresholdAttr().Set(0.0)
     bind_physics_material(prim)
     return prim
 
@@ -909,6 +912,9 @@ def add_sort_objects(stage):
         if yaw_deg != 0.0:
             xf.AddRotateZOp().Set(yaw_deg)
         xf.AddRotateYOp().Set(90.0)
+        # Small roll about the vial's own axis so its faceted collider is not
+        # balanced on an edge; it settles onto a flat face during the start delay.
+        xf.AddRotateZOp(opSuffix="roll").Set(C.VIAL_SPAWN_ROLL_DEG)
 
         vis_path = f"/World/SortVial{i}/Visual"
         add_reference_to_stage(
