@@ -463,7 +463,8 @@ class Policy:
                 if not self.preview_done:
                     self.detect(obs)
                     self.preview_done = True
-                    self.log("preview_only", message="PHYSICAL_EXECUTE=False; holding current pose")
+                    self.log("preview_only", message="PHYSICAL_EXECUTE=False; holding current pose",
+                             tcp_pose_uf0_mm=[round(float(v), 1) for v in obs["tcp_pose"]])
                 return self.hold(obs)
             if not S.PHYSICAL_POSES_CONFIRMED:
                 return self.halt(obs, "Set measured scan/drop poses and PHYSICAL_POSES_CONFIRMED first")
