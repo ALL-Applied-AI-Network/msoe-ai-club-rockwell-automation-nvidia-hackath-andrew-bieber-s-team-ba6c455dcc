@@ -35,8 +35,11 @@ Work in that folder for the rest of the day. Never paste `.request.json` or your
 **b. Copy in today's two updated files** (run in PowerShell on your laptop, from the repo root, with that folder path):
 
 ```powershell
-scp physical-client/lab_day.sh physical-client/policy.py <you>@dh-mgmt2.hpc.msoe.edu:<that-folder>/
+scp lab_day/lab_day.sh physical-client/policy.py <you>@dh-mgmt2.hpc.msoe.edu:<that-folder>/
 ```
+
+(Or `git pull` the branch on ROSIE and run `PHYSICAL_CLIENT_DIR=<that-folder> bash lab_day/lab_day.sh …`. You'd
+still need the new `policy.py` in that folder.)
 
 `policy.py` changed by one line: the preview log now records the arm's reported fingertip pose (needed in step 4).
 

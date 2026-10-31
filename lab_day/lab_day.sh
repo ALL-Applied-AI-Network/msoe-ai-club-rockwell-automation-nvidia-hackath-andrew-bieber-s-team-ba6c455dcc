@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Lab-day launcher for the physical cell. Run it on ROSIE (GPU session) from the
-# SAME physical-client folder that holds your .request.json.
+# Lab-day launcher for the physical cell. Run it on ROSIE (GPU session) against the
+# SAME physical-client folder that holds your .request.json. Either copy this file
+# into that folder, or keep it in lab_day/ and set PHYSICAL_CLIENT_DIR=<that folder>.
 #
 #   bash lab_day.sh check  [legacy|dual_zone_v2]   # checks only, no robot
 #   bash lab_day.sh run    [legacy|dual_zone_v2]   # connect and wait for the operator
@@ -9,7 +10,13 @@
 # This script never changes the motion gates in sort_config.py. Motion stays off
 # (preview only) until you edit them by hand with the operator.
 set -euo pipefail
-cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -n "${PHYSICAL_CLIENT_DIR:-}" ]]; then client="$PHYSICAL_CLIENT_DIR"
+elif [[ -f "$here/run.py" ]]; then client="$here"              # copied into the client folder
+else client="$here/../physical-client"; fi                      # repo layout: lab_day/ next to it
+[[ -f "$client/run.py" ]] || { echo "No physical-client found at $client. Set PHYSICAL_CLIENT_DIR."; exit 2; }
+cd -- "$client"
+echo "Using physical client: $(pwd)"
 
 mode=${1:-check}
 profile=${2:-legacy}
