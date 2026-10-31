@@ -41,9 +41,11 @@ COLORS = {"cube_yellow": (0.95,0.8,0.05), "cube_red": (0.9,0.12,0.1),
 
 
 # Peak carry acceleration limit (m/s^2). A cap carried 0.6 m in 2.8 s
-# (~0.46 m/s^2) tipped out of its point-contact grip; flat-face cube and
-# screw grips held at the starter's faster carries.
-CARRY_MAX_ACCEL = {'cap': 0.10, 'vial': 0.10, 'cube': 0.30, 'screw': 0.30}
+# (~0.46 m/s^2) tipped out of its point-contact grip; flat-face cube grips
+# hold at the faster carries. Screws at 0.30 were lost mid-carry in 50 of 134
+# attempts (50-trial benchmark): the round 6 mm shank turned between the flat
+# pads and fell out, the same failure the cap had. They now use the cap limit.
+CARRY_MAX_ACCEL = {'cap': 0.10, 'vial': 0.10, 'cube': 0.30, 'screw': 0.10}
 
 # Speed profile. 'normal' trims time where nothing is held or nothing can slip:
 # free-space moves at 60%, shorter dwell/release/settle. 'careful' keeps the
@@ -60,8 +62,9 @@ def segments(pick, home):
                 duration *= 0.6  # empty gripper (retreat starts after release)
             elif pick['category'] in ('cube', 'screw'):
                 duration = {'dwell':0.25, 'release':0.3, 'settle':0.4}.get(name, duration)
-        if pick['category'] == 'cap':
-            # Pads touch the round plug at a point: gentle close, dwell and lift.
+        if pick['category'] in ('cap', 'screw'):
+            # Pads touch a round surface (cap plug, screw shank) along a point or
+            # line: gentle close, a full dwell so grip force builds, and a slow lift.
             duration = {'close':1.0, 'dwell':1.0, 'lift':1.6}.get(name,duration)
         if pick['category'] == 'vial':
             # trajectory uses two simulation seconds per duration unit.

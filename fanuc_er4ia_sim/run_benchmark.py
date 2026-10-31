@@ -74,6 +74,8 @@ def main():
     parser.add_argument('--gui', action='store_true',
                         help='Run trials with a small 10 fps viewport instead of headless (needs a desktop)')
     parser.add_argument('--retry-crashed', action='store_true', help='Re-run seeds that crashed or timed out')
+    parser.add_argument('--seeds', type=lambda v: [int(x) for x in v.split(',') if x.strip()],
+                        help='Run exactly these comma-separated seeds instead of --start-seed/--trials')
     parser.add_argument('extra', nargs='*', help='Extra arguments for the sorter (after --)')
     args = parser.parse_args()
 
@@ -85,7 +87,8 @@ def main():
             if line.strip():
                 row = json.loads(line)
                 done[row['seed']] = row['status']
-    seeds = [s for s in range(args.start_seed, args.start_seed+args.trials)
+    wanted = args.seeds or list(range(args.start_seed, args.start_seed+args.trials))
+    seeds = [s for s in wanted
              if s not in done or (args.retry_crashed and done[s] in ('crash', 'timeout', 'error'))]
     try:
         commit = subprocess.run(['git', 'log', '--oneline', '-1'], cwd=HERE, capture_output=True,
@@ -94,7 +97,7 @@ def main():
         commit = 'unknown'
     print(f"[bench] code: {commit or 'unknown'}; mode: {'viewport 10 fps' if args.gui else 'headless'}",
           flush=True)
-    print(f'[bench] {len(seeds)} trials to run ({args.trials-len(seeds)} already recorded) -> {results}',
+    print(f'[bench] {len(seeds)} trials to run ({len(wanted)-len(seeds)} already recorded) -> {results}',
           flush=True)
     durations = []
     for number, seed in enumerate(seeds, 1):
