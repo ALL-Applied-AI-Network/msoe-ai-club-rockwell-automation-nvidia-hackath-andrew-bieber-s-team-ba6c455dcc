@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Where do screw picks fail? python3 screw_report.py runs/benchmark
+"""Where do screw picks fail? python3 screw_report.py runs/benchmark [--trace]
 
 Reads every trial's sort_report.json and puts each screw attempt in one stage,
 using the simulator's evaluation record (never used to command the robot):
@@ -40,7 +40,8 @@ def where(o):
 
 
 def main():
-    directory = Path(sys.argv[1] if len(sys.argv) > 1 else 'runs/benchmark')
+    paths = [a for a in sys.argv[1:] if not a.startswith('--')]
+    directory = Path(paths[0] if paths else 'runs/benchmark')
     rows = []
     for path in sorted(directory.glob('trial_*/sort_report.json')):
         report = json.loads(path.read_text())
@@ -81,6 +82,18 @@ def main():
         bad = [p[name] for _, p, o in rows if o.get('attempt') == 1 and name in p and not o.get('complete')]
         if ok and bad:
             print(f'- {name}: mean {statistics.mean(ok):.3f} when placed, {statistics.mean(bad):.3f} when failed')
+
+    if '--trace' in sys.argv:
+        # Frame-by-frame grip record (every 15 frames) for a few lost and placed attempts.
+        lost = [(t, o) for t, _, o in rows if stage(o) == 'lost in carry'][:4]
+        kept = [(t, o) for t, _, o in rows if o.get('complete')][:2]
+        for label, group in (('LOST', lost), ('PLACED', kept)):
+            for trial, o in group:
+                print(f"\n### {label} {trial} screw {o.get('index')} try {o.get('attempt')}: "
+                      f"jaw/tip errors {o.get('tip_errors_mm')}, sim checks {o.get('sim_check_failures')}")
+                for r in o.get('grip_trace', []):
+                    print(f"{r['phase']:5} {r['frame']:3}/{r['of']}: rotation {r['rotation_deg']:5.1f} deg, "
+                          f"slip {r['slip_mm']:6.1f} mm, joint lag {r['max_joint_lag_deg']:.2f} deg")
 
     print('\n## Placed attempts: typical grip')
     placed = [o for _, _, o in rows if o.get('complete')]
