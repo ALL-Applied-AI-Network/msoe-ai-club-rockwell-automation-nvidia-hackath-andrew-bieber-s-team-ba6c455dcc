@@ -9,6 +9,103 @@ the next move, and the cell carries it out within its own safety limits. You sta
 fault**. Ranking is by success rate, with fewer faults breaking ties. A rollout the operator has to rescue counts as
 a fail, so a small reliable task beats an ambitious one.
 
+## Run sheet: lab day, step by step
+
+Assumes the package is installed and `.request.json` is in the client folder (section 1). Replace `jaenchena`
+with `biebera` if Andrew runs it. The sections below this sheet explain each step in more detail.
+
+### Before the slot (~10 min)
+
+**1. Connect to ROSIE** (PowerShell on your laptop):
+
+```powershell
+ssh -l "jaenchena@ad.msoe.edu" dh-mgmt2.hpc.msoe.edu
+```
+
+**2. Start your usual GPU session**, the way you normally reach a node like `dh-node4`. Confirm you have a GPU:
+
+```bash
+nvidia-smi
+```
+
+**3. Start `tmux`** so the client survives a Wi-Fi or laptop drop. If you get disconnected, reconnect and run
+`tmux attach`.
+
+```bash
+tmux
+```
+
+**4. Go to the folder and run the checks:**
+
+```bash
+cd ~/innovation-lab/lab-oct31/physical-client && export PATH="$HOME/.local/physical-uv/bin:$PATH" && bash lab_day.sh check legacy
+```
+
+You need to see **"✓ Ready for the real robot"** and a status of **approved**.
+
+### At the cell
+
+**5. Check in with the operator:** task, which fingers are mounted, recording permission, drop zones (section 2).
+
+**6. Preview run (the arm doesn't move):**
+
+```bash
+bash lab_day.sh run legacy
+```
+
+Leave it running. When the operator starts the rollout, the client takes a picture, finds the objects, and holds
+still.
+
+**7. Look at the detections.** ROSIE can't show images, so copy the picture to your laptop. In a **second** ROSIE
+window (`Ctrl+B` then `C` opens a new window in tmux):
+
+```bash
+cd ~/innovation-lab/lab-oct31/physical-client && cp "$(ls -dt runs/physical_*/ | head -1)cycle_000/targets.png" ~/latest_targets.png
+```
+
+Then in PowerShell on your laptop:
+
+```powershell
+scp -o "User=jaenchena@ad.msoe.edu" "dh-mgmt2.hpc.msoe.edu:latest_targets.png" "$env:USERPROFILE\Downloads\"
+```
+
+Open it from Downloads. Every object should be outlined, with the right type and colour and the dot on its centre.
+If anything is wrong, don't go further; tell the operator. When the operator ends the preview, press **Ctrl+C** in the
+first window.
+
+**8. Turn motion on**, with the operator watching and agreeing:
+
+```bash
+sed -i 's/^PHYSICAL_EXECUTE = False/PHYSICAL_EXECUTE = True/; s/^PHYSICAL_POSES_CONFIRMED = False/PHYSICAL_POSES_CONFIRMED = True/' sort_config.py
+```
+
+```bash
+bash lab_day.sh run legacy
+```
+
+The top of the output must say **MOTION : ON**. Start with a single object. After that, leave the client running;
+the operator resets the table and starts each rollout. Don't touch anything during a rollout, because any touch
+counts as an intervention and fails it. A scan takes about 40 seconds, which is normal.
+
+**9. When the slot ends:** press Ctrl+C, then turn motion back off and get your results:
+
+```bash
+sed -i 's/^PHYSICAL_EXECUTE = True/PHYSICAL_EXECUTE = False/; s/^PHYSICAL_POSES_CONFIRMED = True/PHYSICAL_POSES_CONFIRMED = False/' sort_config.py
+```
+
+```bash
+uv run run.py --status
+```
+
+```bash
+uv run run.py --download
+```
+
+### If the printed fingers get mounted
+
+Use `dual_zone_v2` instead of `legacy` in steps 6 and 8. Before step 8, do the mount and measurement steps in
+section 4. Skip those steps and the client stops itself with a "Custom fingers need…" message instead of moving.
+
 ## 0. Pick your fingers (decide before you leave)
 
 | | **Plan A: stock fingers** (`legacy`) | **Plan B: printed dual-zone fingers** (`dual_zone_v2`) |
@@ -24,33 +121,47 @@ doesn't fit, use Plan A only.
 
 ## 1. Before you leave (about 30 min)
 
-**a. Find the folder you submitted from.** The client needs its private `.request.json`. On ROSIE:
+Do these steps in the ROSIE account that will run the client during the slot (yours, `jaenchena`, or Andrew's,
+`biebera`). Change the login in the commands to match.
+
+**a. Build the package** (on a laptop with the repo, from the repo root, in Git Bash or WSL):
 
 ```bash
-ls ~/innovation-lab/*/physical-client/.request.json ~/innovation-lab/*/*/physical-client/.request.json 2>/dev/null
+git archive --format=tar.gz -o ~/Downloads/physical-client-lab.tar.gz HEAD physical-client lab_day
 ```
 
-Work in that folder for the rest of the day. Never paste `.request.json` or your results link into chat or Git.
+It contains the client and this folder only: no secrets, no `.venv`.
 
-**b. Copy in today's two updated files.** In PowerShell on your laptop, `cd` to the repo root first. Use the MSOE
-login that owns the request folder (change `jaenchena` if needed). The files land in your ROSIE home folder:
+**b. Copy it to ROSIE and install** (PowerShell on the laptop, then ROSIE):
 
 ```powershell
-scp -o "User=jaenchena@ad.msoe.edu" lab_day/lab_day.sh physical-client/policy.py "dh-mgmt2.hpc.msoe.edu:"
+scp -o "User=jaenchena@ad.msoe.edu" "$env:USERPROFILE\Downloads\physical-client-lab.tar.gz" "dh-mgmt2.hpc.msoe.edu:"
 ```
-
-Then on ROSIE, move them into the folder from step 1a and run the checks (replace `PASTE_FOLDER_HERE`):
 
 ```bash
-cp ~/lab_day.sh ~/policy.py PASTE_FOLDER_HERE/ && cd PASTE_FOLDER_HERE && bash lab_day.sh check legacy
+mkdir -p ~/innovation-lab/lab-oct31 && tar -xzf ~/physical-client-lab.tar.gz -C ~/innovation-lab/lab-oct31 && cd ~/innovation-lab/lab-oct31/physical-client && cp ../lab_day/lab_day.sh . && bash setup_rosie.sh
 ```
 
-(Or `git pull` the branch on ROSIE and run `PHYSICAL_CLIENT_DIR=PASTE_FOLDER_HERE bash lab_day/lab_day.sh …`. You'd
-still need the new `policy.py` in that folder.)
+It must end with "Setup passed". From here on, **the client folder is `~/innovation-lab/lab-oct31/physical-client`**.
 
-`policy.py` changed by one line: the preview log now records the arm's reported fingertip pose (needed in step 4).
+**c. Put the request in that folder.** The client needs the private `.request.json` from `run.py --submit`.
 
-**c. Check the request and what it promises:**
+- If a request already exists, find it and copy it in. **Don't submit a duplicate.**
+
+  ```bash
+  find ~ -name .request.json -not -path "*/.venv/*" 2>/dev/null
+  ```
+
+  ```bash
+  cp PATH_IT_PRINTED ~/innovation-lab/lab-oct31/physical-client/
+  ```
+
+- If no one has submitted: `bash request_test.sh`, review what it shows, then `uv run run.py --submit`. Book the
+  printed request ID on the Calendar tab at hackathon.sidclab.org and wait for approval.
+
+Never paste `.request.json` or your results link into chat or Git. Send it only by direct message.
+
+**d. Check the request and what it promises:**
 
 ```bash
 export PATH="$HOME/.local/physical-uv/bin:$PATH"
@@ -60,7 +171,7 @@ cat submission/submission.yaml submission/placement.yaml
 
 Note the `objects`, `custom_hardware` and the rollout list. The operator will set up exactly that.
 
-**d. Get a GPU session that covers the whole slot plus 30 min**, using your usual ROSIE GPU allocation. SAM 2
+**e. Get a GPU session that covers the whole slot plus 30 min**, using your usual ROSIE GPU allocation. SAM 2
 must run on a GPU, never on the login node. Then in that session:
 
 ```bash
@@ -70,7 +181,7 @@ bash lab_day.sh check legacy          # and/or: bash lab_day.sh check dual_zone_
 It should pass preflight, the SAM/CUDA check, the mock ("✓ Ready for the real robot") and show status
 **approved**. If status isn't approved, message the organizers on Slack before going.
 
-**e. Pack:**
+**f. Pack:**
 - [ ] Laptop + charger, with an SSH session to the ROSIE GPU node
 - [ ] Printed parts: mounting coupon, left + right finger bodies. The vial holder is **not needed**: the physical
       client drops vials on the bare table. Don't place one on the table, since the code doesn't know it's there
@@ -80,7 +191,7 @@ It should pass preflight, the SAM/CUDA check, the mock ("✓ Ready for the real 
 - [ ] Phone + tripod/stand
 - [ ] Printed copy of the attempt log (section 6)
 
-**f. Roles:** one person runs the terminal, one films (see `VIDEO_PLAN.md` shot list), one keeps the log.
+**g. Roles:** one person runs the terminal, one films (see `VIDEO_PLAN.md` shot list), one keeps the log.
 
 ## 2. Check-in with the operator (first 5 min of the slot)
 
@@ -186,7 +297,7 @@ uv run run.py --download      # recorded dataset (cameras + robot state)
 From your laptop, copy the evidence off ROSIE:
 
 ```powershell
-scp -r -o "User=jaenchena@ad.msoe.edu" "dh-mgmt2.hpc.msoe.edu:PASTE_FOLDER_HERE/runs" ./lab_evidence_oct31
+scp -r -o "User=jaenchena@ad.msoe.edu" "dh-mgmt2.hpc.msoe.edu:innovation-lab/lab-oct31/physical-client/runs" ./lab_evidence_oct31
 ```
 
 Then fill the **"Use of the CSI physical equipment"** section of `EXECUTIVE_SUMMARY.md` with: fingers used, objects,
@@ -197,7 +308,7 @@ numbers. Don't commit videos or run folders to Git.
 
 | Symptom | Fix |
 |---|---|
-| `WARNING: no .request.json here` | You're in the wrong folder. Go back to step 1a |
+| `WARNING: no .request.json here` | Wrong folder, or the request file is missing. See section 1c |
 | `Missing SAM interpreter` | `export SORT_SAM_PYTHON="$HOME/venvs/sam2-check/bin/python"`, inside the GPU session |
 | `uv: command not found` or a Snap permission error | `export PATH="$HOME/.local/physical-uv/bin:$PATH"` (needed again in every new shell) |
 | Status not approved / client waits forever | Ask the operator or organizers on Slack. Don't submit a second request |
