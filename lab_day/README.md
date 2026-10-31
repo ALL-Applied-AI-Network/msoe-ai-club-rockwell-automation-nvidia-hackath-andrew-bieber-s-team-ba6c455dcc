@@ -45,7 +45,7 @@ Then on ROSIE, move them into the folder from step 1a and run the checks (replac
 cp ~/lab_day.sh ~/policy.py PASTE_FOLDER_HERE/ && cd PASTE_FOLDER_HERE && bash lab_day.sh check legacy
 ```
 
-(Or `git pull` the branch on ROSIE and run `PHYSICAL_CLIENT_DIR=<that-folder> bash lab_day/lab_day.sh …`. You'd
+(Or `git pull` the branch on ROSIE and run `PHYSICAL_CLIENT_DIR=PASTE_FOLDER_HERE bash lab_day/lab_day.sh …`. You'd
 still need the new `policy.py` in that folder.)
 
 `policy.py` changed by one line: the preview log now records the arm's reported fingertip pose (needed in step 4).
@@ -185,7 +185,7 @@ uv run run.py --download      # recorded dataset (cameras + robot state)
 From your laptop, copy the evidence off ROSIE:
 
 ```powershell
-scp -r <you>@dh-mgmt2.hpc.msoe.edu:<that-folder>/runs ./lab_evidence_oct31
+scp -r -o "User=jaenchena@ad.msoe.edu" "dh-mgmt2.hpc.msoe.edu:PASTE_FOLDER_HERE/runs" ./lab_evidence_oct31
 ```
 
 Then fill the **"Use of the CSI physical equipment"** section of `EXECUTIVE_SUMMARY.md` with: fingers used, objects,
