@@ -32,10 +32,17 @@ ls ~/innovation-lab/*/physical-client/.request.json ~/innovation-lab/*/*/physica
 
 Work in that folder for the rest of the day. Never paste `.request.json` or your results link into chat or Git.
 
-**b. Copy in today's two updated files** (run in PowerShell on your laptop, from the repo root, with that folder path):
+**b. Copy in today's two updated files.** In PowerShell on your laptop, `cd` to the repo root first. Use the MSOE
+login that owns the request folder (change `jaenchena` if needed). The files land in your ROSIE home folder:
 
 ```powershell
-scp lab_day/lab_day.sh physical-client/policy.py <you>@dh-mgmt2.hpc.msoe.edu:<that-folder>/
+scp -o "User=jaenchena@ad.msoe.edu" lab_day/lab_day.sh physical-client/policy.py "dh-mgmt2.hpc.msoe.edu:"
+```
+
+Then on ROSIE, move them into the folder from step 1a and run the checks (replace `PASTE_FOLDER_HERE`):
+
+```bash
+cp ~/lab_day.sh ~/policy.py PASTE_FOLDER_HERE/ && cd PASTE_FOLDER_HERE && bash lab_day.sh check legacy
 ```
 
 (Or `git pull` the branch on ROSIE and run `PHYSICAL_CLIENT_DIR=<that-folder> bash lab_day/lab_day.sh …`. You'd
