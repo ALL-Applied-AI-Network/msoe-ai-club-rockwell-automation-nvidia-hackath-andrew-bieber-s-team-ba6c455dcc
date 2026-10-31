@@ -18,6 +18,11 @@ robot operation. The original `feature/mvp2` and Asher designs remain separate.
 - `cad/left_body.stl` and `cad/right_body.stl`: one of each. Units are millimetres;
   do not scale. Left means the positive-Y stock jaw, viewed in the official STEP
   coordinate frame. Both STLs are oriented with the flat outer face on the bed.
+- `cad/left_body_tinker_logo.stl`: the same left body with the Tinker robot
+  face engraved 0.6 mm deep on its outer face, behind the wide rail. It is
+  cosmetic only. Print this **or** `left_body.stl`, not both. Regenerate it with
+  `python engrave_tinker_logo.py` (needs `manifold3d` and NumPy). There is
+  no STEP version.
 - `cad/contact_pad_primary_quantity_2.stl`: two narrow-zone pads, **6 × 32 × 1 mm**.
 - `cad/contact_pad_wide_quantity_2.stl`: two wide-zone pads, **50 × 32 × 1 mm**.
   The finished compliant pad-plus-adhesive stack must total **1 mm**. A 1 mm

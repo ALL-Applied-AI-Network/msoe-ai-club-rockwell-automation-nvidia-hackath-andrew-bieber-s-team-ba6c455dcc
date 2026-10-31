@@ -14,7 +14,7 @@ a design there, regenerate it and copy the STLs here again.
 | File | Qty | Note |
 |---|---:|---|
 | `mounting_coupon.stl` | 1 | **Print first.** Test-fit it on the SMC jaw before printing the fingers |
-| `left_body.stl` | 1 | 93 × 74 × 15 mm |
+| `left_body_tinker_logo.stl` | 1 | 93 × 74 × 15 mm; left body with the Tinker robot face engraved (see below) |
 | `right_body.stl` | 1 | 93 × 74 × 15 mm |
 | `contact_pad_primary_quantity_2.stl` | **2** | 6 × 32 × 1 mm; the file holds one pad |
 | `contact_pad_wide_quantity_2.stl` | **2** | 50 × 32 × 1 mm; the file holds one pad |
@@ -58,6 +58,15 @@ The robot picks the zone for each object by shifting its tool point.
   Ø3.6 mm clearance holes and need metal nuts; there are no plastic threads.
   The coupon is a small test piece for that interface, so a wrong fit costs
   minutes instead of a full print.
+- **Tinker logo.** The left body has the robot face from the Tinker app
+  engraved 0.6 mm deep, 30 mm across. It sits on the outer face behind the
+  wide rail, the side people see when the gripper is mounted. That face is
+  printed on the bed, so the logo comes out crisp, and the antenna points
+  toward the mount so the face reads upright when the fingers point down. It
+  is cosmetic only: it touches no pad, bolt or contact face, and the rail
+  stays 7.85 mm thick behind it. The plain `left_body.stl` is still in
+  `../dual_zone_v2/cad/` if you prefer it. The generator is
+  `../dual_zone_v2/engrave_tinker_logo.py`.
 - **Checked in CAD:** the fingers and the stock actuator do not collide at 13
   jaw positions across the full stroke, and every STL is watertight.
 
