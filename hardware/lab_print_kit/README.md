@@ -16,8 +16,15 @@ a design there, regenerate it and copy the STLs here again.
 | `mounting_coupon.stl` | 1 | **Print first.** Test-fit it on the SMC jaw before printing the fingers |
 | `left_body_tinker_logo.stl` | 1 | 93 × 74 × 15 mm; left body with the Tinker robot face engraved (see below) |
 | `right_body.stl` | 1 | 93 × 74 × 15 mm |
-| `contact_pad_primary_quantity_2.stl` | **2** | 6 × 32 × 1 mm; the file holds one pad |
-| `contact_pad_wide_quantity_2.stl` | **2** | 50 × 32 × 1 mm; the file holds one pad |
+| `contact_pad_primary_quantity_2.stl` | 2 *(optional)* | 6 × 32 × 1 mm; the file holds one pad. **TPU only** |
+| `contact_pad_wide_quantity_2.stl` | 2 *(optional)* | 50 × 32 × 1 mm; the file holds one pad. **TPU only** |
+
+**Pads: print them only in TPU, never PLA.** Rigid pads add the 1 mm thickness
+but no grip, and the vial slides. The simpler route is to cut the four pads
+(2 × 6 × 32 mm, 2 × 50 × 32 mm) from ~0.8 mm rubber sheet. Or wrap the bottom
+32 mm of each rail with two layers of self-fusing silicone tape (~1 mm). Keep
+the gripping face smooth, then check the closed gaps: about 18 mm (vial zone)
+and 5.2 mm (screw zone).
 
 Bring: 4 × M3 screws (about 16 mm; check against the real stack), 4 × M3 metal
 nuts, washers, and adhesive for the pads.
