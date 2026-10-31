@@ -72,11 +72,12 @@ It should pass preflight, the SAM/CUDA check, the mock ("✓ Ready for the real 
 
 **e. Pack:**
 - [ ] Laptop + charger, with an SSH session to the ROSIE GPU node
-- [ ] Printed parts: mounting coupon, left + right finger bodies, vial holder
+- [ ] Printed parts: mounting coupon, left + right finger bodies. The vial holder is **not needed**: the physical
+      client drops vials on the bare table. Don't place one on the table, since the code doesn't know it's there
 - [ ] 4 × M3 ~16 mm screws, 4 × M3 metal nuts, washers, small hex key/screwdriver
 - [ ] Pads: ~0.8 mm rubber sheet or self-fusing silicone tape (no PLA pads), plus adhesive
 - [ ] Calipers and a steel ruler (mm)
-- [ ] Phone + tripod/stand, double-sided tape (vial holder)
+- [ ] Phone + tripod/stand
 - [ ] Printed copy of the attempt log (section 6)
 
 **f. Roles:** one person runs the terminal, one films (see `VIDEO_PLAN.md` shot list), one keeps the log.
