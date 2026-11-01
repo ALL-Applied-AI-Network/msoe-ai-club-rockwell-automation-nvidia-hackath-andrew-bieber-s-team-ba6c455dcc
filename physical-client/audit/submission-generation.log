@@ -1,0 +1,28 @@
+team: Andrew Bieber's Team
+contact: VALIDATION FIXTURE, validation@localhost
+policy: MVP2-SAM2-Physical-v1
+model_type: Hybrid
+task_id: mvp2-andrew
+task: 'Sort M6x30 screws and red/blue/yellow 10 mm cubes into separate bare-table
+  zones. First four rollouts present one object each, followed by one mixed rollout.
+  No cups or bins. Target centres in robot base XY: screws=(200,-250) mm; red=(200,250)
+  mm; blue=(200,0) mm; yellow=(370,340) mm. Initial preview holds position; motion
+  is enabled only after the real overlay and poses are checked with the operator.
+  Success: every presented object released in its designated zone; log attempts, time
+  and interventions. The operator must confirm that the listed objects and proposed
+  marked destinations are available and acceptable.'
+objects: different
+layout: different
+rollouts: 5
+custom_hardware: none
+
+Wrote both submission YAML files. Review them, then: uv run run.py --submit
+PASS: projection arithmetic, resize/frame conventions, UF0 conversion and configured pose bounds
+These mathematical checks do not establish real-world calibration, grasp or collision accuracy.
+Camera orientation: raw physical table frame; no image flip. Native size: (1920, 1080)
+Release: 10.0 mm fingertip above bare table (proposed; verify in cell)
+Motion enabled: False; poses confirmed: False
+Allowed kinds: ('screw', 'cube'); maximum grasp width: 11.0 mm
+Fresh scan per pick; destination correction: True; watch: False
+SHA256 7a8df1da65f238a1445319d720c1a2ce143e344754d44e42ff2f82d6d68a29f3 calibration/cameras.json
+PASS: request identity and placement/rollout count

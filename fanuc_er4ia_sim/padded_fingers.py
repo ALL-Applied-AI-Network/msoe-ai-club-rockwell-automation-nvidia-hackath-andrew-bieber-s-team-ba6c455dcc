@@ -1,4 +1,4 @@
-"""Flat padded finger sets (padded / cap / universal).  Dimensions in metres.
+"""Flat padded finger sets (padded / cap / universal) and dual-zone sets (dual / dual_v2).
 
 Profile coordinates match gripper_geometry.finger_profile():
   u = along the finger (0 = carriage end, FINGER_LENGTH = tip)
@@ -15,6 +15,9 @@ Sets (chosen in scene_config.py with FINGER_SET=<name>):
     padded     PAD_FACE 4 mm,   stroke 6 mm   ->  8 closed / 20 open  (cubes, small vials)
     cap        PAD_FACE 7 mm,   stroke 6 mm   -> 14 closed / 26 open  (caps, vials; NOT cubes)
     universal  PAD_FACE 4.5 mm, stroke 8.5 mm ->  9 closed / 26 open  (experimental; not the installed SMC)
+    dual       PAD_FACE 4 mm,   stroke 6 mm   ->  8 / 20 primary plus an offset 14 / 26 cap zone
+    dual_v2    PAD_FACE 2.6 mm, stroke 6 mm   ->  5.2 / 17.2 primary (screws, cubes) plus
+               an 18 / 30 secondary zone (real vials, caps); see dual_zone.py
 
 See what fits, no Isaac needed (extra args are your own part widths in mm):
     FINGER_SET=cap python padded_fingers.py
@@ -114,10 +117,15 @@ def cap_width_at(height_above_surface):
 
 def jaw_for_object(object_type, cap_pick_height=0.005):
     """Jaw command for 'cube', 'vial' or 'cap' (narrow end up), for the pick script."""
+    if C.FINGER_SET == "dual_v2":
+        from dual_zone import jaw_target
+        if object_type == "cap":
+            return jaw_target(object_type, cap_width_at(cap_pick_height))
+        return jaw_target(object_type)
     if object_type == "cube":
         width = C.CUBE_EDGE
     elif object_type == "vial":
-        width = 2 * C.VIAL_RADIUS
+        return jaw_for_width(2 * C.VIAL_RADIUS, squeeze=C.VIAL_GRIP_SQUEEZE)
     elif object_type == "cap":
         width = cap_width_at(cap_pick_height)
     else:
@@ -128,7 +136,7 @@ def jaw_for_object(object_type, cap_pick_height=0.005):
 def report(extra_mm=()):
     print(f"finger set : {C.FINGER_SET}")
     if not enabled():
-        print("(set FINGER_SET=padded, cap or universal to see a padded-finger window)")
+        print("(set FINGER_SET=padded, cap, universal, dual or dual_v2 to see a padded-finger window)")
         return
     left = (C.FINGER_WIDTH - C.PAD_FACE - C.PAD_T) * 1000
     print(f"PAD_FACE   : {C.PAD_FACE * 1000:.2f} mm, pad {C.PAD_T * 1000:.1f} mm, "

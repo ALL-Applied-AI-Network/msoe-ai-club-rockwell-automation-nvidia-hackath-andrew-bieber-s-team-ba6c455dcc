@@ -1,0 +1,14 @@
+[layout] Separated layout: 6 cubes, 2 parallel vials, 2 caps
+[layout] Existing scans, motion planning and collision gates remain active
+[sort] PLAN cube 0 -> cube_yellow [0.16, -0.32]; IK error 0.099 mm
+[sort] PLAN cube 1 -> cube_yellow [0.16, -0.4]; IK error 0.099 mm
+[sort] PLAN cube 2 -> cube_red [0.26, -0.32]; IK error 0.099 mm
+[sort] PLAN cube 3 -> cube_red [0.26, -0.4]; IK error 0.100 mm
+[sort] PLAN cube 4 -> cube_blue [0.36, -0.32]; IK error 0.100 mm
+[sort] PLAN cube 5 -> cube_blue [0.36, -0.4]; IK error 0.100 mm
+[sort] PLAN vial 0 -> vial [0.23, 0.35]; IK error 0.099 mm
+[sort] PLAN vial 1 -> vial [0.23, 0.43]; IK error 0.100 mm
+[sort] PLAN cap 0 -> cap [0.41, 0.3]; IK error 0.100 mm
+[sort] PLAN cap 1 -> cap [0.41, 0.36]; IK error 0.100 mm
+[scan] Nominal IK and wall/object clearance checks passed.
+[sort] Host checks passed; physics and full-arm collisions remain unverified.

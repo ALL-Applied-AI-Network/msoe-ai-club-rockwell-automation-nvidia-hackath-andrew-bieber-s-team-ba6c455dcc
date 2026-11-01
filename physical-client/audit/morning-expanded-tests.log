@@ -1,0 +1,66 @@
+test_batch_attempts_all_targets_once_before_retrying (test_sorting.SortingTests.test_batch_attempts_all_targets_once_before_retrying) ... ok
+test_batch_changed_target_defers_without_discarding_neighbours (test_sorting.SortingTests.test_batch_changed_target_defers_without_discarding_neighbours) ... ok
+test_cached_target_is_invalidated_when_image_changes (test_sorting.SortingTests.test_cached_target_is_invalidated_when_image_changes) ... ok
+test_chunk_limits_speed_and_gripper_timing (test_sorting.SortingTests.test_chunk_limits_speed_and_gripper_timing) ... ok
+test_classes_have_separate_drop_areas_within_radius (test_sorting.SortingTests.test_classes_have_separate_drop_areas_within_radius) ... ok
+test_controller_lag_cannot_advance_phase (test_sorting.SortingTests.test_controller_lag_cannot_advance_phase) ... [sort] {"event": "hold_for_operator", "elapsed_s": 0.012, "reason": "TCP did not settle; check controller/gripper before resuming"}
+ok
+test_destination_inspection_does_not_enable_arbitrary_table_pickups (test_sorting.SortingTests.test_destination_inspection_does_not_enable_arbitrary_table_pickups) ... ok
+test_destination_routing_repairs_wrong_zones_and_leaves_correct_ones (test_sorting.SortingTests.test_destination_routing_repairs_wrong_zones_and_leaves_correct_ones) ... ok
+test_full_state_machine_and_large_object_pause (test_sorting.SortingTests.test_full_state_machine_and_large_object_pause) ... [sort] {"event": "attempt", "elapsed_s": 0.006, "label": "screw", "xy": [0.39, 0], "drop": "screws", "pickup_verified": false}
+[sort] {"event": "carry", "elapsed_s": 0.014, "pickup_verified": false, "reason": "source no longer detected"}
+[sort] {"event": "release_commanded", "elapsed_s": 0.017, "label": "screw", "release_verified": false}
+[sort] {"event": "hold_for_operator", "elapsed_s": 0.018, "reason": "No eligible detections; inspect overlay for missed/exhausted objects"}
+[sort] {"event": "attempt", "elapsed_s": 0.006, "label": "cap", "xy": [0.39, 0], "drop": "caps", "pickup_verified": false}
+[sort] {"event": "carry", "elapsed_s": 0.011, "pickup_verified": false, "reason": "source no longer detected"}
+[sort] {"event": "release_commanded", "elapsed_s": 0.013, "label": "cap", "release_verified": false}
+[sort] {"event": "hold_for_operator", "elapsed_s": 0.013, "reason": "Cap/vial attempt finished; inspect for hooked object before next rollout"}
+ok
+test_mask_memory_layouts (test_sorting.SortingTests.test_mask_memory_layouts) ... ok
+test_misc_cannot_relabel_a_known_object_fragment (test_sorting.SortingTests.test_misc_cannot_relabel_a_known_object_fragment) ... ok
+test_misc_needs_small_shape_and_positive_depth (test_sorting.SortingTests.test_misc_needs_small_shape_and_positive_depth) ... ok
+test_missing_pose_confirmation_stops_motion (test_sorting.SortingTests.test_missing_pose_confirmation_stops_motion) ... [sort] {"event": "hold_for_operator", "elapsed_s": 0.0, "reason": "Set measured scan/drop poses and PHYSICAL_POSES_CONFIRMED first"}
+ok
+test_preview_preserves_closed_gripper (test_sorting.SortingTests.test_preview_preserves_closed_gripper) ... [sort] {"event": "preview_only", "elapsed_s": 0.0, "message": "PHYSICAL_EXECUTE=False; holding current pose"}
+ok
+test_projection_resize_and_uf0 (test_sorting.SortingTests.test_projection_resize_and_uf0) ... ok
+test_scan_queue_invalidates_failures_neighbours_and_large_objects (test_sorting.SortingTests.test_scan_queue_invalidates_failures_neighbours_and_large_objects) ... ok
+test_size_order_drop_exclusion_and_attempt_ids (test_sorting.SortingTests.test_size_order_drop_exclusion_and_attempt_ids) ... ok
+test_synthetic_masks_all_classes_and_rotated_cube (test_sorting.SortingTests.test_synthetic_masks_all_classes_and_rotated_cube) ... ok
+test_watch_rearms_location_only_after_two_absent_full_scans (test_sorting.SortingTests.test_watch_rearms_location_only_after_two_absent_full_scans) ... ok
+test_controller_box_is_enforced_before_queuing_or_selecting (test_physical.PhysicalTests.test_controller_box_is_enforced_before_queuing_or_selecting) ... ok
+test_disabled_target_holds_without_attempting_a_grasp (test_physical.PhysicalTests.test_disabled_target_holds_without_attempting_a_grasp) ... [sort] {"event": "disabled_targets", "elapsed_s": 0.0, "targets": [{"label": "cap", "world_xy": [0.39, 0.0], "reason": "kind not enabled for this physical test"}]}
+[sort] {"event": "hold_for_operator", "elapsed_s": 0.0, "reason": "No eligible detections; inspect overlay for missed/exhausted objects"}
+ok
+test_failed_source_is_rescanned_and_stops_after_two_attempts (test_physical.PhysicalTests.test_failed_source_is_rescanned_and_stops_after_two_attempts) ... ok
+test_invalid_later_pose_does_not_publish_partial_plan (test_physical.PhysicalTests.test_invalid_later_pose_does_not_publish_partial_plan) ... ok
+test_measured_landmarks_expose_an_accidental_180_degree_flip (test_physical.PhysicalTests.test_measured_landmarks_expose_an_accidental_180_degree_flip) ... ok
+test_missed_pick_then_successful_retry_emits_controller_valid_rows (test_physical.PhysicalTests.test_missed_pick_then_successful_retry_emits_controller_valid_rows) ... ok
+test_nonmatching_image_aspect_is_rejected (test_physical.PhysicalTests.test_nonmatching_image_aspect_is_rejected) ... ok
+test_official_submit_serializes_generated_request_without_network (test_physical.PhysicalTests.test_official_submit_serializes_generated_request_without_network) ... ok
+test_physical_detection_can_correct_red_cube_in_screw_destination (test_physical.PhysicalTests.test_physical_detection_can_correct_red_cube_in_screw_destination) ... [sort] {"event": "detections", "elapsed_s": 0.069, "count": 1, "overlay": "/tmp/tmp5cwocovt/runs/physical_20261022_053913_105455/cycle_000/targets.png", "order": ["cube_red"]}
+ok
+test_pose_bounds_and_wrapped_interpolation (test_physical.PhysicalTests.test_pose_bounds_and_wrapped_interpolation) ... ok
+test_published_camera_orientation_places_base_above_pickup (test_physical.PhysicalTests.test_published_camera_orientation_places_base_above_pickup) ... ok
+test_raw_real_view_detection_preserves_xy_at_both_client_resolutions (test_physical.PhysicalTests.test_raw_real_view_detection_preserves_xy_at_both_client_resolutions) ... [sort] {"event": "detections", "elapsed_s": 0.022, "count": 1, "overlay": "/tmp/tmpk8bzdpc3/runs/physical_20261022_053913_177736/cycle_000/targets.png", "order": ["screw"]}
+[sort] {"event": "detections", "elapsed_s": 0.063, "count": 1, "overlay": "/tmp/tmpvkfn346v/runs/physical_20261022_053913_208196/cycle_000/targets.png", "order": ["screw"]}
+ok
+test_settle_timeout_halts_without_executing_queued_descent (test_physical.PhysicalTests.test_settle_timeout_halts_without_executing_queued_descent) ... [sort] {"event": "hold_for_operator", "elapsed_s": 0.0, "reason": "TCP did not settle; check controller/gripper before resuming"}
+ok
+test_settling_requires_consecutive_matches_after_lag (test_physical.PhysicalTests.test_settling_requires_consecutive_matches_after_lag) ... ok
+test_source_verification_moves_off_pickup_before_detection (test_physical.PhysicalTests.test_source_verification_moves_off_pickup_before_detection) ... [sort] {"event": "source_still_detected", "elapsed_s": 0.002, "label": "screw"}
+ok
+test_submission_has_real_identity_and_matching_placement_count (test_physical.PhysicalTests.test_submission_has_real_identity_and_matching_placement_count) ... ok
+test_success_path_uses_low_table_release_and_preserves_unverified_logs (test_physical.PhysicalTests.test_success_path_uses_low_table_release_and_preserves_unverified_logs) ... ok
+test_ungraspable_width_and_disabled_types_are_excluded_from_motion (test_physical.PhysicalTests.test_ungraspable_width_and_disabled_types_are_excluded_from_motion) ... ok
+test_watch_holds_until_deadline_without_repeating_sam (test_physical.PhysicalTests.test_watch_holds_until_deadline_without_repeating_sam) ... [sort] {"event": "idle", "elapsed_s": 0, "seconds": 60.0, "exhausted_visible": 0}
+ok
+test_private_uv_bypasses_broken_path_uv (test_workflow.WorkflowTests.test_private_uv_bypasses_broken_path_uv) ... ok
+test_request_generation_does_not_submit_or_connect (test_workflow.WorkflowTests.test_request_generation_does_not_submit_or_connect) ... ok
+test_setup_stops_at_failed_sync_and_can_restart (test_workflow.WorkflowTests.test_setup_stops_at_failed_sync_and_can_restart) ... ok
+test_snap_uv_is_replaced_and_restart_preserves_request (test_workflow.WorkflowTests.test_snap_uv_is_replaced_and_restart_preserves_request) ... ok
+
+----------------------------------------------------------------------
+Ran 42 tests in 0.701s
+
+OK

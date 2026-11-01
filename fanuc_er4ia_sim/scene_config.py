@@ -195,6 +195,15 @@ JAW_MASS = 0.032  # one blade + its carriage
 JAW_DRIVE_STIFF = 4.0e4
 JAW_DRIVE_DAMP = 3.0e3
 JAW_MAX_FORCE = 180.0
+# Contact-patch radius of the 1 mm compliant pads (half the 6 mm rail thickness).
+# Rigid PhysX contacts otherwise give almost no friction against twisting about
+# the pad normal, so a long vial held off-centre pivots out of the fingers.
+GRIP_PATCH_RADIUS = 0.003
+# Pad squeeze for vials: jaw drive stiffness x squeeze = ~40 N per finger,
+# versus ~12 N from the 0.3 mm default. At 24 N the end-gripped vial held through
+# the lift but began slipping at peak carry acceleration and never recovered.
+# CHECK against the real SMC MHZL2-16D2 gripping force at the cell's air pressure.
+VIAL_GRIP_SQUEEZE = 0.0010
 
 TOOL_AXIS = (1.0, 0.0, 0.0)
 FINGER_SPREAD_AXIS = (0.0, 1.0, 0.0)
@@ -233,6 +242,18 @@ LASER_LENGTH = 0.032
 # -- screws disabled --
 SCREWS = []
 
+# -- task screws: M6 x 30 countersunk, ISO 10642 (organizer STL
+# assets/ISO10642-M6x30-countersunk-screw.stl). Overall length 30 mm including
+# the head; 90 deg head from 12 mm to the 6 mm shank over 3 mm.
+SCREW_LENGTH = 0.030
+SCREW_HEAD_D = 0.012
+SCREW_SHANK_D = 0.006
+SCREW_HEAD_H = 0.003
+SCREW_MASS = 0.0075  # steel, ~7.5 g
+# Each entry: (x_centre, y_centre, yaw_deg); yaw = screw axis from +X, centre =
+# midpoint of the 30 mm length. Empty by default; demo layouts add them.
+SORT_SCREWS = []
+
 # -- cube (cube.usda, 16 mm)
 # PHOTO 2026-10-08: real scene has 2 cubes, both yellow.
 CUBE_EDGE = 0.010  # hackathon: 2 mm clearance inside measured 12 mm open gap
@@ -246,6 +267,9 @@ FINGER_INNER_TIP = (SCALLOP_R**2 - SCALLOP_ABOVE_TIP**2) ** 0.5
 #   cap        7 mm relief + 1 mm pad: 14 mm closed / 26 mm open
 #   universal  4.5 mm relief + 1 mm pad: 9 mm closed / 26 mm open; requires
 #              8.5 mm per-jaw travel, not the installed SMC MHZL2-16D2.
+#   dual       original offset grasp zones (primary 8--20 mm)
+#   dual_v2    revised zones: primary 5.2--17.2 mm (M6 shafts, cubes),
+#              secondary 18--30 mm (real vials, caps); see dual_zone.py
 # The installed SMC's real 6 mm-per-jaw stroke remains the default. Environment
 # overrides are intended only for explicit geometry experiments.
 import os as _os
@@ -256,6 +280,8 @@ _PRESETS = {
     "padded": (0.004, None),
     "cap": (0.007, None),
     "universal": (0.0045, 0.0085),
+    "dual": (0.004, None),
+    "dual_v2": (0.0026, None),
 }
 PAD_STEP_X = 0.044
 PAD_T = 0.001
@@ -278,6 +304,10 @@ if FINGER_SET != "scallop":
     except ValueError as exc:
         raise ValueError("PAD_FACE_MM and JAW_STROKE_MM must be numeric millimetres") from exc
 
+    if FINGER_SET in ("dual", "dual_v2"):
+        PAD_LEAD_IN = 0.0  # square pad ends, as calibrated for the dual-zone sets
+    if FINGER_SET == "dual_v2":
+        FINGER_WIDTH = 0.01845  # final CAD v2 outer faces; 48.9 mm total open envelope
     if not 0.0 <= PAD_STEP_X < FINGER_LENGTH:
         raise ValueError("PAD_STEP_X must lie within the finger length")
     if not (0.0 <= PAD_FACE and PAD_FACE + PAD_T <= FINGER_WIDTH - 0.003):
@@ -291,11 +321,21 @@ if FINGER_SET != "scallop":
         CARRIAGE_W = min(CARRIAGE_W, 2.0 * (0.0139 - JAW_OPEN) - 0.0008)
         if CARRIAGE_W <= 0.004:
             raise ValueError("jaw stroke is too long for the carriage proxies")
+    # Flat pad faces replace the scallop's inner-tip half-gap at full close.
     FINGER_INNER_TIP = PAD_FACE
 CUBE_TIP_CLEARANCE = TIP_CLEARANCE
 CUBE_JAW_HALF_TARGET = max(JAW_CLOSED, CUBE_EDGE / 2 - FINGER_INNER_TIP - 0.0003)
 assert 2 * (JAW_OPEN + FINGER_INNER_TIP) > CUBE_EDGE * 2**0.5
 CUBE_MASS = 0.004
+# The cell also has 16 mm cubes (organizer CAD). A SORT_CUBES entry may carry a
+# 4th field, its edge in metres: (x, y, colour, edge).
+CUBE_LARGE_EDGE = 0.016
+CUBE_LARGE_MASS = 0.0045  # ABS, ~4.5 g
+
+
+def cube_edge(index):
+    entry = SORT_CUBES[index]
+    return entry[3] if len(entry) > 3 else CUBE_EDGE
 CUBE_MATS = ["red", "yellow", "blue"]  # variant names in the USD colour set
 SORT_CUBES = [
     (0.365769, 0.072782, "yellow"),
@@ -309,7 +349,20 @@ SORT_CUBES = [
 # Translation accounts for the offset: T = (x_ctr - L/2·cos(yaw), y - L/2·sin(yaw)).
 VIAL_RADIUS = 0.017 / 2  # RENDER-FIT: reduce tube silhouette width
 VIAL_LENGTH = 0.1400  # PHOTO-FIT: 140 mm, conditional on table prior
+if FINGER_SET == "dual_v2":
+    # Organizer CAD dimensions; the original dual prototype remains photo-scaled.
+    VIAL_RADIUS = 0.02718 / 2
+    VIAL_LENGTH = 0.203
 VIAL_MASS = 0.020
+# Shared object/table physics material (cell.init_physics). Benchmarks vary these.
+OBJECT_STATIC_FRIC = 0.9
+OBJECT_DYNAMIC_FRIC = 0.8
+# PhysX has no rolling resistance: a lying vial nudged at spawn kept rolling
+# ~1 mm/s and moved after it was scanned. Angular damping (1/s) stands in for
+# the real vial's rolling resistance on the mat; a roll dies out in ~1 s.
+VIAL_ANGULAR_DAMPING = 3.0
+# Sides of the vial's prism collider (2 x sides vertices; PhysX hull limit 64).
+VIAL_COLLIDER_SIDES = 24
 SORT_VIALS = [
     (0.423296, -0.218227, 39.638288),
     (0.399653, -0.007706, 10.367641),

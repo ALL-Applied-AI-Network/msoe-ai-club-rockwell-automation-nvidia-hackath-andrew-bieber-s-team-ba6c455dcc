@@ -1,0 +1,43 @@
+rollouts:
+- objects:
+    screw:
+    - 390
+    - 0
+    - 0
+  prompt: Place one M6x30 screw with its HEAD at (390,0) mm, yaw 0 toward the tip.
+    Sort it to screws.
+- objects:
+    cube:
+    - 390
+    - -90
+    - 20
+  prompt: Use one RED 10 mm cube at (390,-90) mm, yaw 20 degrees. Sort it to red.
+- objects:
+    cube:
+    - 390
+    - 90
+    - -20
+  prompt: Use one BLUE 10 mm cube at (390,90) mm, yaw -20 degrees. Sort it to blue.
+- objects:
+    cube:
+    - 350
+    - 130
+    - 0
+  prompt: Use one YELLOW 10 mm cube at (350,130) mm. Sort it to yellow.
+- objects:
+    screw:
+    - 390
+    - -160
+    - 0
+    cube:
+    - - 340
+      - -50
+      - 20
+    - - 420
+      - 40
+      - -20
+    - - 340
+      - 150
+      - 0
+  prompt: 'Mixed test: screw head at (390,-160), yaw 0; RED 10 mm cube at (340,-50),
+    BLUE at (420,40), YELLOW at (340,150). Sort to the corresponding bare-table zones.'

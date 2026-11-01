@@ -1,0 +1,11 @@
+{
+  "organizer_commit": "ff7534e730f2b3db261c7f22d3d9b56a40c00eed",
+  "files": {
+    "run.py": "136dd8d38a8633e53e4a1171e9472174c8ba71d5c24d647d1db1722e3ced7c44",
+    "cell_client.py": "55680e989f2a8ba9d452bbdc9ec240865003c6aa5f19db96115cf7ee7fc38c73",
+    "mock_cell.py": "2cb5ef807eaa6ba6e06a14702a8fcf8ec0675fb86ffcba32de06e149a9bb3066",
+    "calibration/geometry.py": "24b6824152c28050c8009514fa473d7620014088e7c050d97b51cab14e9e8888",
+    "calibration/FRAMES.md": "f794e150c576f15dd202155d8997f194adc61d38af37dde51b2010caa9f5bb5a",
+    "calibration/cameras.json": "7a8df1da65f238a1445319d720c1a2ce143e344754d44e42ff2f82d6d68a29f3"
+  }
+}

@@ -1,0 +1,10 @@
+PASS: projection arithmetic, resize/frame conventions, UF0 conversion and configured pose bounds
+These mathematical checks do not establish real-world calibration, grasp or collision accuracy.
+Camera orientation: raw physical table frame; no image flip. Native size: (1920, 1080)
+Release: 10.0 mm fingertip above bare table (proposed; verify in cell)
+Motion enabled: False; poses confirmed: False
+Allowed kinds: ('screw', 'cube'); width upper-bound bypass for verified-fit kinds: ('screw', 'cube')
+Width upper bound for other kinds: 11.0 mm; finite positive widths still required
+Scan mode: batch; destination correction: True; watch: False
+One SAM pass per batch; fresh RGB change checks between picks; final rescan even at attempt limit
+SHA256 7a8df1da65f238a1445319d720c1a2ce143e344754d44e42ff2f82d6d68a29f3 calibration/cameras.json

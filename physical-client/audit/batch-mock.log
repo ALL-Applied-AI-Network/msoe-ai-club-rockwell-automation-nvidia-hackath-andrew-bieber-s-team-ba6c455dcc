@@ -1,0 +1,7 @@
+Checking your policy on a local mock of the cell (1 rollouts, no robot) ...
+  rollout 1/1: 27 actions, 0 rejected
+
+✓ Ready for the real robot
+  1 rollouts · 27 actions · 0 rejected · act() takes under 1 ms
+  The mock's images are synthetic, so your policy may not do anything useful here. That is fine:
+  the mock only checks that your policy and the cell understand each other.

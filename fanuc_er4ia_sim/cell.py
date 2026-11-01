@@ -243,6 +243,16 @@ def small_contact_offsets(prim):
     api.CreateRestOffsetAttr().Set(0.0)
 
 
+def grip_patch(prim):
+    """Give a pad or gripped object a contact patch so PhysX applies
+    torsional friction about the contact normal (see C.GRIP_PATCH_RADIUS)."""
+    from pxr import PhysxSchema
+
+    api = PhysxSchema.PhysxCollisionAPI.Apply(prim)
+    api.CreateTorsionalPatchRadiusAttr().Set(C.GRIP_PATCH_RADIUS)
+    api.CreateMinTorsionalPatchRadiusAttr().Set(C.GRIP_PATCH_RADIUS)
+
+
 def init_physics(stage):
     """One shared physics material for the task objects and the table.
 
@@ -253,8 +263,8 @@ def init_physics(stage):
     m = UsdPhysics.MaterialAPI.Apply(
         UsdGeom.Scope.Define(stage, PHYS_MAT_PATH).GetPrim()
     )
-    m.CreateStaticFrictionAttr().Set(0.9)
-    m.CreateDynamicFrictionAttr().Set(0.8)
+    m.CreateStaticFrictionAttr().Set(C.OBJECT_STATIC_FRIC)
+    m.CreateDynamicFrictionAttr().Set(C.OBJECT_DYNAMIC_FRIC)
     m.CreateRestitutionAttr().Set(0.05)
 
     t = UsdPhysics.MaterialAPI.Apply(
@@ -310,7 +320,11 @@ def make_dynamic(
     px.CreateAngularDampingAttr().Set(angular_damping)
     px.CreateLinearDampingAttr().Set(linear_damping)
     px.CreateSolverPositionIterationCountAttr().Set(16)
-    px.CreateSolverVelocityIterationCountAttr().Set(2)
+    # 8 velocity passes (was 2): friction on held objects is resolved here.
+    px.CreateSolverVelocityIterationCountAttr().Set(8)
+    # Never sleep: a sleeping body reads as perfectly still to the pre-grasp
+    # scan, then shifts when the fingers wake it.
+    px.CreateSleepThresholdAttr().Set(0.0)
     bind_physics_material(prim)
     return prim
 
@@ -623,6 +637,22 @@ def build(stage, with_objects=True):
     )
     bind_physics_material(matp)
     small_contact_offsets(matp)
+    # DUAL_SOLID_WORK_SURFACE_V1
+    # One continuous support volume ends at the SAME calibrated surface height.
+    # Avoid a 2 mm thin mat collider over a second table collider.
+    UsdPhysics.CollisionAPI(matp).CreateCollisionEnabledAttr().Set(False)
+    table_prim = stage.GetPrimAtPath("/World/Table")
+    UsdPhysics.CollisionAPI(table_prim).CreateCollisionEnabledAttr().Set(False)
+    support = box(
+        stage, "/World/SolidWorkSurface",
+        (tw, td, tt + C.MAT_T),
+        (C.TABLE_CENTER[0], C.TABLE_CENTER[1],
+         C.TABLE_TOP_Z + C.SURFACE_DZ - (tt + C.MAT_T) / 2.0),
+        (0.90, 0.90, 0.895), mat="table_white",
+    )
+    UsdGeom.Imageable(support).CreateVisibilityAttr().Set("invisible")
+    bind_physics_material(support)
+    small_contact_offsets(support)
 
     robot_usd = os.environ.get("FANUC_ROBOT_USD")
     if not robot_usd:
@@ -876,7 +906,8 @@ def add_sort_objects(stage):
             Gf.Vec3d(
                 x_ctr - C.VIAL_LENGTH / 2 * _math.cos(yaw_rad),
                 y - C.VIAL_LENGTH / 2 * _math.sin(yaw_rad),
-                Z + C.VIAL_RADIUS + 0.001,
+                # Rest on the surface: a 1 mm drop set the lying vial rolling.
+                Z + C.VIAL_RADIUS + 0.0001,
             )
         )
         if yaw_deg != 0.0:
@@ -901,18 +932,37 @@ def add_sort_objects(stage):
                 bindingStrength=UsdShade.Tokens.strongerThanDescendants,
             )
 
+        # Faceted prism, not UsdGeom.Cylinder: Isaac 6 simulates cylinders as exact
+        # round shapes, which touch a flat pad at ONE point. One point cannot resist
+        # twisting, so the off-centre-gripped vial pivoted ~47 deg out of the grip,
+        # and the round shape rolled freely on the table. Flats sit at VIAL_RADIUS;
+        # a flat faces local +X, which is straight down once the vial is laid flat.
         coll_path = f"/World/SortVial{i}/Collider"
-        coll = UsdGeom.Cylinder.Define(stage, coll_path)
-        coll.CreateAxisAttr("Z")
-        coll.CreateRadiusAttr(C.VIAL_RADIUS)
-        coll.CreateHeightAttr(C.VIAL_LENGTH)
-        UsdGeom.Xformable(coll.GetPrim()).AddTranslateOp().Set(
-            Gf.Vec3d(0, 0, C.VIAL_LENGTH / 2)
+        n = C.VIAL_COLLIDER_SIDES
+        corner = C.VIAL_RADIUS / _math.cos(_math.pi / n)
+        ring = [
+            (corner * _math.cos(2 * _math.pi * (k + 0.5) / n),
+             corner * _math.sin(2 * _math.pi * (k + 0.5) / n))
+            for k in range(n)
+        ]
+        coll = UsdGeom.Mesh.Define(stage, coll_path)
+        coll.CreatePointsAttr(
+            [Gf.Vec3f(x, y, 0.0) for x, y in ring]
+            + [Gf.Vec3f(x, y, C.VIAL_LENGTH) for x, y in ring]
         )
+        faces = [[k, (k + 1) % n, n + (k + 1) % n, n + k] for k in range(n)]
+        faces += [list(range(n - 1, -1, -1)), list(range(n, 2 * n))]
+        coll.CreateFaceVertexCountsAttr([len(f) for f in faces])
+        coll.CreateFaceVertexIndicesAttr([v for f in faces for v in f])
         UsdGeom.Imageable(coll.GetPrim()).CreateVisibilityAttr().Set("invisible")
         UsdPhysics.CollisionAPI.Apply(coll.GetPrim())
+        UsdPhysics.MeshCollisionAPI.Apply(coll.GetPrim()).CreateApproximationAttr().Set(
+            "convexHull"
+        )
         bind_physics_material(coll.GetPrim())
-        make_dynamic(g.GetPrim(), C.VIAL_MASS, collide_self=False)
+        grip_patch(coll.GetPrim())
+        make_dynamic(g.GetPrim(), C.VIAL_MASS, collide_self=False,
+                     angular_damping=C.VIAL_ANGULAR_DAMPING)
 
     # ---- caps: lying flat (Z-up disc), origin = bottom face ----
     for i, (x, y) in enumerate(C.SORT_CAPS):
@@ -1009,7 +1059,8 @@ def add_sort_objects(stage):
         make_dynamic(g.GetPrim(), C.CAP_MASS, collide_self=False)
 
     # ---- cubes: upright, colour variant from USD ----
-    for i, (x, y, colour) in enumerate(C.SORT_CUBES):
+    for i, (x, y, colour, *_) in enumerate(C.SORT_CUBES):
+        e = C.cube_edge(i)
         g = UsdGeom.Xform.Define(stage, f"/World/SortCube{i}")
         UsdGeom.Xformable(g.GetPrim()).AddTranslateOp().Set(Gf.Vec3d(x, y, Z))
         UsdGeom.Xformable(g.GetPrim()).AddRotateZOp().Set(C.SORT_CUBE_YAWS_DEG[i])
@@ -1019,7 +1070,7 @@ def add_sort_objects(stage):
             usd_path=os.path.join(here, "assets/usd_assets/cube.usda"),
             prim_path=vis_path,
         )
-        scale_cad_visual(stage, vis_path, (C.CUBE_EDGE / 0.016,) * 3)
+        scale_cad_visual(stage, vis_path, (e / 0.016,) * 3)
         vis_prim = stage.GetPrimAtPath(vis_path)
         # Isaac Sim handles inch→metre conversion; just set the colour variant.
         if vis_prim.IsValid():
@@ -1027,7 +1078,6 @@ def add_sort_objects(stage):
             if vs and vs.IsValid():
                 vs.SetVariantSelection(colour)
 
-        e = C.CUBE_EDGE
         coll_path = f"/World/SortCube{i}/Collider"
         coll_box = UsdGeom.Cube.Define(stage, coll_path)
         coll_box.CreateSizeAttr(1.0)
@@ -1038,7 +1088,64 @@ def add_sort_objects(stage):
         UsdPhysics.CollisionAPI.Apply(coll_box.GetPrim())
         bind_physics_material(coll_box.GetPrim())
         small_contact_offsets(coll_box.GetPrim())
-        make_dynamic(g.GetPrim(), C.CUBE_MASS, collide_self=False)
+        mass = C.CUBE_MASS if e == C.CUBE_EDGE else C.CUBE_LARGE_MASS
+        make_dynamic(g.GetPrim(), mass, collide_self=False)
+
+    add_task_screws(stage)
+
+
+def convex_piece(stage, path, rings):
+    """Convex-hull collider from rings of (radius, z) about local Z (16 sides)."""
+    n = 16
+    pts = []
+    for r, z in rings:
+        for k in range(n):
+            a = 2 * math.pi * (k + 0.5) / n
+            pts.append(Gf.Vec3f(float(r * math.cos(a)), float(r * math.sin(a)), float(z)))
+    m = UsdGeom.Mesh.Define(stage, path)
+    m.CreatePointsAttr(pts)
+    faces = [[j * n + k, j * n + (k + 1) % n, (j + 1) * n + (k + 1) % n, (j + 1) * n + k]
+             for j in range(len(rings) - 1) for k in range(n)]
+    faces += [list(range(n - 1, -1, -1)), list(range((len(rings) - 1) * n, len(rings) * n))]
+    m.CreateFaceVertexCountsAttr([len(face) for face in faces])
+    m.CreateFaceVertexIndicesAttr([v for face in faces for v in face])
+    UsdGeom.Imageable(m.GetPrim()).CreateVisibilityAttr().Set("invisible")
+    UsdPhysics.CollisionAPI.Apply(m.GetPrim())
+    UsdPhysics.MeshCollisionAPI.Apply(m.GetPrim()).CreateApproximationAttr().Set("convexHull")
+    bind_physics_material(m.GetPrim())
+    grip_patch(m.GetPrim())
+    return m.GetPrim()
+
+
+def add_task_screws(stage):
+    """M6 x 30 countersunk screws (ISO 10642) lying on the mat, for sorting.
+
+    Root at the head-face centre, local +Z toward the tip (the vial convention,
+    so dual_zone.centre() works). Colliders are two explicit convex pieces --
+    cone head and shank prism -- not a decomposition: flat facets give the pads
+    a multi-point contact, and a single hull would merge head and shank into one
+    taper that wedges out of parallel jaws.
+    """
+    Z = C.TABLE_TOP_Z + C.SURFACE_DZ
+    hr, sr = C.SCREW_HEAD_D / 2, C.SCREW_SHANK_D / 2
+    L, hh = C.SCREW_LENGTH, C.SCREW_HEAD_H
+    for i, (x, y, yaw) in enumerate(C.SORT_SCREWS):
+        g = UsdGeom.Xform.Define(stage, f"/World/SortScrew{i}")
+        a = math.radians(yaw)
+        xf = UsdGeom.Xformable(g.GetPrim())
+        # Head face at centre - L/2 along the axis; rests on the head rim.
+        xf.AddTranslateOp().Set(Gf.Vec3d(x - L / 2 * math.cos(a), y - L / 2 * math.sin(a),
+                                         Z + hr + 0.0002))
+        if yaw:
+            xf.AddRotateZOp().Set(float(yaw))
+        xf.AddRotateYOp().Set(90.0)
+        prof = [(0.0, 0.0), (hr, 0.0), (sr, hh), (sr, L - 0.0008), (sr * 0.8, L), (0.0, L)]
+        body = revolve(stage, f"/World/SortScrew{i}/Visual", prof, (0.06, 0.06, 0.07),
+                       mat="black_oxide")
+        UsdGeom.Imageable(body).CreateVisibilityAttr().Set("inherited")
+        convex_piece(stage, f"/World/SortScrew{i}/HeadCollider", [(hr, 0.0), (sr, hh)])
+        convex_piece(stage, f"/World/SortScrew{i}/ShankCollider", [(sr, hh), (sr, L)])
+        make_dynamic(g.GetPrim(), C.SCREW_MASS, collide_self=False)
 
 
 def add_grasp_cubes(stage):
@@ -1516,6 +1623,25 @@ def attach_gripper(stage, jaw=None, articulated=True):
             contact.CreateContactOffsetAttr().Set(0.0002)
             contact.CreateRestOffsetAttr().Set(0.0)
             bind_physics_material(collider, material)
+            if material == SOFT_TIP_MAT_PATH:
+                grip_patch(collider)
+        if C.FINGER_SET in ("dual", "dual_v2"):
+            # Additional cap rail and root bridge, attached to the same rigid jaw.
+            # Local Z is perpendicular to both tool length X and jaw travel Y.
+            from dual_zone import extra_boxes
+            for name, size, centre, soft in extra_boxes(sign):
+                local = (finger_x - carriage_x + centre[0],
+                         centre[1] - sign * C.FINGER_WIDTH / 2, centre[2])
+                prim = box(stage, jaw_path + "/Dual" + name, size, local,
+                           METAL, mat="soft_tip" if soft else "alu_machined")
+                UsdPhysics.CollisionAPI.Apply(prim)
+                from pxr import PhysxSchema
+                contact = PhysxSchema.PhysxCollisionAPI.Apply(prim)
+                contact.CreateContactOffsetAttr().Set(0.0002)
+                contact.CreateRestOffsetAttr().Set(0.0)
+                bind_physics_material(prim, SOFT_TIP_MAT_PATH if soft else PHYS_MAT_PATH)
+                if soft:
+                    grip_patch(prim)
         for number, u in enumerate(C.FINGER_MOUNT_HOLES):
             for face in (-1, 1):
                 cyl(
@@ -1620,7 +1746,7 @@ def attach_gripper(stage, jaw=None, articulated=True):
         if articulated:
             rb = UsdPhysics.RigidBodyAPI.Apply(g.GetPrim())
             rb.CreateRigidBodyEnabledAttr().Set(True)
-            UsdPhysics.MassAPI.Apply(g.GetPrim()).CreateMassAttr(C.JAW_MASS)
+            UsdPhysics.MassAPI.Apply(g.GetPrim()).CreateMassAttr((0.080 if C.FINGER_SET in ("dual", "dual_v2") else C.JAW_MASS))
 
             j = UsdPhysics.PrismaticJoint.Define(
                 stage, FLANGE + f"/Gripper/{JAW_JOINTS[tag]}"

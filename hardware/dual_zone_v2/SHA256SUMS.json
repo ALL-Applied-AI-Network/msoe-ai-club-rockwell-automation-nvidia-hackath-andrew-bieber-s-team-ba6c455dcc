@@ -1,0 +1,23 @@
+{
+  "README.md": "6c5488d953f098851367503835ff077327514ba44e78061b961c081c08800f58",
+  "assembly_preview.png": "aa03f15fb821e0070507f798c8578bacea760041611a6db2ea603cbbaaf23c91",
+  "build_cad.py": "e5da479d7a2da1f43b5cfe7d30265ce42ffd330944e4a78540303ad45f4afae9",
+  "cad/assembly_closed.step": "bb926eede103f432f271d3021015ecd149c9a61c8ec9e672d01078d11cbad0a4",
+  "cad/assembly_open.step": "8ec692f46980dc7790571eea2dab7b802f377ba1d30f1592758565d4668ec890",
+  "cad/contact_pad_primary.step": "883abbbf84fd2ef9d35d53d85465b50f7f49e5c1887a94edb5f3229358c403f5",
+  "cad/contact_pad_primary_quantity_2.stl": "a236d50eba2ebd65f7e273e1fe8da0a1a1f6aa16457ab648b645cae0aab17fe9",
+  "cad/contact_pad_wide.step": "0bd108b9a201b420d7e442bf7ddec3f6c417c5278cc650247e2285039a89bd14",
+  "cad/contact_pad_wide_quantity_2.stl": "d4232dff279a0c18ba9572bf8a57a21a03242a84e53dfa3769e0255b0260f630",
+  "cad/left_body.step": "9e6e9e3cfdc47ab6142f76dc3c5ea946bdd2fae6cde3f00079add0208e05ff5d",
+  "cad/left_body.stl": "8682737e4fdc9dd9b97cdd986b62d96f49cfb17d9fdb8e49cf6ed5d15df96987",
+  "cad/mounting_coupon.step": "1568ffbca881cbaf03b93f2071afa88ab7c1c612590abaddfa803a652572fdbf",
+  "cad/mounting_coupon.stl": "88c9a8278eff24092010b3f69796a4cad20f8303511ba82fefb7bfa517513c26",
+  "cad/right_body.step": "37ed8a7fa87217b7b8747e88acad74c22f186ebbb67732faa4183775211a4d6d",
+  "cad/right_body.stl": "3e06d522446903ac02fe1511ae1647b684d86f0fed3ee0607172164d5041123d",
+  "cad_validation.json": "6fb5aefb87dbf17f0f1d77b8f81ef2c7af6a2b41c211800c2c64d2aed3308ece",
+  "dimensions.json": "bc401c7ce93fee614f4acdd0558f0503d0be7a13dbfb37b7480001170d204e6e",
+  "dimensions.png": "56ac5b279733a80ac39e78b15a08ccf13d79f87ae5741b39e368f790f65a4568",
+  "dimensions.svg": "f0f4f12d1d994fb86a4ed745a1c532a71cd57d981aabc83cfb70557b80d161d5",
+  "reference/SMC-MHZL2-16D2.step": "a348a19a31a537429f46b471c1bb46bcb993707bb735a80ced08ad5a038fce52",
+  "render_cad.py": "c736bb6ac5569be53099bc8af63a3a877301e44b86b17c0f2036291cfe3afa58"
+}
