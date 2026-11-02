@@ -1,5 +1,5 @@
 {
-  "design": "CSI dual-zone V2.1 geometric prototype (long wide-zone pad)",
+  "design": "CSI dual-zone V2.2 candidate (long screw and wide-zone pads)",
   "units": "mm",
   "coordinate_frame": "Official SMC STEP: +Z distal/tool axis, Y jaw closing axis, +X secondary rail offset",
   "jaw_travel_each": 6.0,
@@ -22,6 +22,8 @@
   "tip_z": 83.5,
   "rail_separation_x": 40.0,
   "rail_thickness_x": 6.0,
+  "primary_rail_length_x": 24.0,
+  "primary_v_groove_depth": 0.0,
   "wide_rail_length_x": 50.0,
   "primary_contact_y_closed": 2.6,
   "wide_contact_y_closed": 9.0,
@@ -46,3 +48,4 @@
   "strength_validated": false,
   "physical_grasps_validated": false
 }
+

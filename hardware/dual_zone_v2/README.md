@@ -1,10 +1,16 @@
 # Dual-zone V2 printable finger prototype
 
-> **V2.1 (October 30):** the wide-zone rail and its pad now run **50 mm** along
-> the vial instead of 6 mm, extending away from the narrow rail. In simulation
-> the end-gripped real vial pivoted about 45° out of 6 mm pads; the long pad
-> resists that twist. The bridge is 20 mm tall (Z 25.8–45.8) to stiffen the longer
-> overhang. Pads come in two sizes (see below). Reprint both bodies and pads.
+> **V2.2 candidate (November 1):** the primary screw rail and pad now run
+> **24 mm** along −X instead of 6 mm, while their existing +X edge stays fixed.
+> This extends the contact away from the wide zone after the October 31
+> benchmark recorded 50 lost screw attempts caused by the round 6 mm shank
+> slowly rotating between the flat pads during carry. The pad remains flat:
+> cutting a V into the 1 mm finished TPU stack would change its squeeze and the
+> already-successful cube contact. This is unbenchmarked and physically untested.
+>
+> V2.1's 50 mm wide-zone rail remains unchanged; it resists vial pivot. The
+> bridge is 20 mm tall (Z 25.8–45.8) and now supports both longer rails. Reprint
+> both bodies and both pad sizes for this candidate.
 
 This revision keeps Asher's two fixed contact zones on one parallel jaw mechanism,
 with the same **6 mm travel per jaw**, and changes their gaps to cover the actual
@@ -23,7 +29,7 @@ robot operation. The original `feature/mvp2` and Asher designs remain separate.
   cosmetic only. Print this **or** `left_body.stl`, not both. Regenerate it with
   `python engrave_tinker_logo.py` (needs `manifold3d` and NumPy). There is
   no STEP version.
-- `cad/contact_pad_primary_quantity_2.stl`: two narrow-zone pads, **6 × 32 × 1 mm**.
+- `cad/contact_pad_primary_quantity_2.stl`: two narrow-zone pads, **24 × 32 × 1 mm**.
 - `cad/contact_pad_wide_quantity_2.stl`: two wide-zone pads, **50 × 32 × 1 mm**.
   The finished compliant pad-plus-adhesive stack must total **1 mm**. A 1 mm
   printed pad plus additional adhesive changes both designed gaps. The same
@@ -47,6 +53,7 @@ package does not specify a rated polymer, infill, torque or pneumatic pressure.
 |---|---:|---:|
 | Gap fully closed, with pads | 5.2 mm | 18.0 mm |
 | Gap fully open, with pads | 17.2 mm | 30.0 mm |
+| Contact length along zone-offset axis | 24 mm, flat | 50 mm, flat |
 | Intended objects | M6 shaft; 9–16 mm cubes | Cap plug; Ø27.18 mm vial |
 | Modeled entry clearance per side | 0.5 mm minimum | 1.0 mm minimum |
 | Modeled squeeze allowance per side | 0.3 mm | 0.3 mm |
@@ -54,7 +61,9 @@ package does not specify a rated polymer, infill, torque or pneumatic pressure.
 
 The two zones are **40 mm apart** along actuator STEP +X. Both fingertips end at
 **Z = 83.5 mm**, nominally 76 mm beyond the stock CAD body's front plane at Z = 7.5.
-The narrow rail is 6 mm thick along X; the wide rail spans X = 37–87 mm (50 mm). The open exterior span across the closing axis
+The primary rail spans X = −21–3 mm (24 mm), retaining its original +3 mm edge
+and extending away from the wide zone. The wide rail remains at X = 37–87 mm
+(50 mm), leaving 34 mm between their nearest edges. The open exterior span across the closing axis
 is 48.9 mm; collision screening must include that exterior, not just the pad gap.
 The root bridge ends 37.7 mm above the fingertips. This clearance applies only
 with the fingers directed down and does not constitute a full-arm collision model.
@@ -116,6 +125,10 @@ match this attachment merely because the nominal blade length is 76 mm.
   touch without interpenetrating.
 - `cad_validation.json` records the checks and the reference STEP SHA256.
 
+These are geometric checks of the V2.2 candidate. No new 50-trial benchmark or
+physical carry test has measured whether it improves screw retention. The
+October 31 baseline remains 84/98 screws placed after retries (85.7%).
+
 These checks do not validate loads, fatigue, pad adhesion, print anisotropy,
 physical fit, full-arm clearance, object recognition or grasp success. No new
 physical test is claimed. The packaged software keeps motion confirmation gates
@@ -144,3 +157,4 @@ the simulation and physical gripper profile before a motion test.
 
 The reference STEP is included solely as the mounting and interference reference.
 This is a proposed custom attachment; it is not an SMC-approved design.
+

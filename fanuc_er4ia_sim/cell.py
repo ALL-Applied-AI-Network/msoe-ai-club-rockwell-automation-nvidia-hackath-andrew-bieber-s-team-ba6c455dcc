@@ -1626,7 +1626,8 @@ def attach_gripper(stage, jaw=None, articulated=True):
             if material == SOFT_TIP_MAT_PATH:
                 grip_patch(collider)
         if C.FINGER_SET in ("dual", "dual_v2"):
-            # Additional cap rail and root bridge, attached to the same rigid jaw.
+            # Additional contact-rail geometry and root bridge, attached to the
+            # same rigid jaw. V2.2 includes the primary screw-pad extension.
             # Local Z is perpendicular to both tool length X and jaw travel Y.
             from dual_zone import extra_boxes
             for name, size, centre, soft in extra_boxes(sign):
@@ -2022,3 +2023,4 @@ def _oriented(size):
     if ax != 2:
         out[2], out[ax] = out[ax], out[2]
     return tuple(out)
+

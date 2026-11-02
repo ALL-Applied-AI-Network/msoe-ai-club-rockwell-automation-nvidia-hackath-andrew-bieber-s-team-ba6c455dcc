@@ -88,7 +88,7 @@ def main():
     out = body - cutter
     assert out.status().name == 'NoError', out.status()
     removed = body.volume() - out.volume()
-    n = write_stl(OUT, out, 'CSI dual-zone V2.1 left body + Tinker logo (mm)')
+    n = write_stl(OUT, out, 'CSI dual-zone V2.2 left body + Tinker logo (mm)')
     b = out.bounding_box()
     print(f'{OUT.name}: {n} triangles, genus {out.genus()}, bbox {np.round(b, 2).tolist()}, '
           f'logo {logo.area():.0f} mm^2, removed {removed:.0f} mm^3 '
@@ -102,3 +102,4 @@ def _op(name):
 
 if __name__ == '__main__':
     main()
+

@@ -1,5 +1,5 @@
 {
-  "design": "CSI dual-zone V2.1 geometric prototype (long wide-zone pad)",
+  "design": "CSI dual-zone V2.2 candidate (long screw and wide-zone pads)",
   "units": "mm",
   "scope": "geometric CAD checks only",
   "stock_source": "https://hackathon.sidclab.org/files/SMC-MHZL2-16D2.step",
@@ -8,12 +8,12 @@
     "left_body": {
       "valid": true,
       "solids": 1,
-      "volume_mm3": 36802.17487762842
+      "volume_mm3": 51718.38487762843
     },
     "right_body": {
       "valid": true,
       "solids": 1,
-      "volume_mm3": 36802.17487762842
+      "volume_mm3": 51718.38487762843
     },
     "mounting_coupon": {
       "valid": true,
@@ -23,21 +23,21 @@
   },
   "mesh_checks": {
     "left_body": {
-      "triangles": 1328,
+      "triangles": 1320,
       "boundary_or_nonmanifold_edges": 0,
-      "signed_volume_mm3": 36802.204950938285,
+      "signed_volume_mm3": 51718.414545636064,
       "extents_mm": [
-        93.0,
+        108.0,
         73.69999694824219,
         14.850000381469727
       ]
     },
     "right_body": {
-      "triangles": 1328,
+      "triangles": 1320,
       "boundary_or_nonmanifold_edges": 0,
-      "signed_volume_mm3": 36802.20663150408,
+      "signed_volume_mm3": 51718.41724587026,
       "extents_mm": [
-        93.0,
+        108.0,
         73.69999694824219,
         14.850000381469727
       ]
@@ -45,9 +45,9 @@
     "contact_pad_primary_quantity_2": {
       "triangles": 12,
       "boundary_or_nonmanifold_edges": 0,
-      "signed_volume_mm3": 192.0,
+      "signed_volume_mm3": 768.0,
       "extents_mm": [
-        6.0,
+        24.0,
         32.0,
         1.0
       ]
@@ -175,9 +175,25 @@
   "bridge_clearance_above_tip_mm": 37.7,
   "low_rail_open_envelope_mm": {
     "thickness_along_offset": 6.0,
+    "primary_rail_length_along_offset": 24.0,
+    "primary_rail_span": [
+      -21.0,
+      3.0
+    ],
     "wide_rail_length_along_offset": 50.0,
     "full_outer_width": 48.9,
     "offset": 40.0
+  },
+  "primary_screw_contact": {
+    "length_mm": 24.0,
+    "span_step_x_mm": [
+      -21.0,
+      3.0
+    ],
+    "extension_direction": "-X, away from the wide zone",
+    "pad_profile": "flat compliant pad",
+    "v_groove_depth_mm": 0.0,
+    "benchmark_or_physical_retention_verified": false
   },
   "nominal_object_fit": [
     {
@@ -255,11 +271,12 @@
     "physical_retention_verified": false
   },
   "limits": [
-    "No physical mounting or gripping test",
+    "Candidate screw-retention fix; no post-change benchmark or physical gripping test",
+    "No physical mounting test",
     "No structural or fatigue analysis",
     "Reference is stock D2 actuator CAD, not a survey of the installed cell",
     "Requires four finished 1 mm pads (2 narrow, 2 wide); adhesive thickness is included",
-    "Long wide rail and bridge overhang: print strength not analysed",
+    "Long primary/wide rails and bridge overhang: print strength not analysed",
     "Physical TCP and both grip-zone offsets require calibration",
     "Real vial needs end-biased grasp so inactive narrow rail clears its length"
   ]

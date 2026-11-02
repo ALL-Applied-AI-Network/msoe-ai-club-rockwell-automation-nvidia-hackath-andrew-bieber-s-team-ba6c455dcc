@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from matplotlib.patches import Rectangle, Circle
 import numpy as np
 
-from build_cad import ROOT, D, make_positive_body, make_positive_pads
+from build_cad import ROOT, D, make_positive_body, make_positive_pads, rail_span
 
 COLORS = dict(body='#176ca5', pad='#edaa3c', metal='#aab6c2', ink='#172d40')
 
@@ -57,17 +57,17 @@ def main():
             for pad in pads:
                 part=pad if sign>0 else pad.mirror('XZ')
                 surface(ax,part.translate((0,sign*travel,0)),COLORS['pad'])
-        ax.set_xlim(-20,53);ax.set_ylim(-29,29);ax.set_zlim(90,-50)
-        ax.set_box_aspect((73,58,140));ax.set_proj_type('ortho')
+        ax.set_xlim(-28,95);ax.set_ylim(-29,29);ax.set_zlim(90,-50)
+        ax.set_box_aspect((123,58,140));ax.set_proj_type('ortho')
         ax.view_init(elev=15,azim=-125)
         ax.set_axis_off()
         subtitle='CLOSED · 5.2 mm / 18.0 mm gaps' if travel==0 else 'OPEN · 17.2 mm / 30.0 mm gaps'
         ax.set_title(subtitle,pad=0,color=COLORS['ink'],fontsize=15)
-    fig.suptitle('Dual-zone V2 · printable finger prototype',fontsize=24,fontweight='bold',
+    fig.suptitle('Dual-zone V2.2 · screw-retention candidate',fontsize=24,fontweight='bold',
                  x=.05,y=.97,ha='left',color=COLORS['ink'])
     fig.text(.05,.91,'Blue: two printed bodies     Amber: four 1 mm contact pads (2 narrow, 2 wide)     Grey: official SMC MHZL2-16D2 CAD',
              color='#4b6072',fontsize=12)
-    fig.text(.05,.07,'Same 6 mm travel per jaw. Narrow zone: M6 shafts and 9–16 mm cubes. Wide zone: cap plugs and the real Ø27.18 mm vial.',
+    fig.text(.05,.07,'Same 6 mm travel per jaw. 24 mm flat screw contact extends away from the wide zone; vial/cap geometry is unchanged.',
              color=COLORS['ink'],fontsize=11)
     fig.text(.05,.035,'Geometric fit prototype only · mounting coupon first · physical strength, TCP and grasp testing pending',
              color='#7c5123',fontsize=11)
@@ -76,8 +76,11 @@ def main():
     plt.close(fig)
 
     fig,(ax,bx)=plt.subplots(1,2,figsize=(15,8),gridspec_kw={'width_ratios':[1.4,1]},facecolor='white')
+    primary_x0, primary_x1 = rail_span('primary')
+    wide_x0, wide_x1 = rail_span('wide')
     for sign in (-1,1):
-        for x,width,face in ((-3,6,2.6),(37,D['wide_rail_length_x'],9)):
+        for x,width,face in ((primary_x0,primary_x1-primary_x0,2.6),
+                             (wide_x0,wide_x1-wide_x0,9)):
             if sign>0:
                 ax.add_patch(Rectangle((x,face+1),width,18.45-face-1,facecolor=COLORS['body']))
                 ax.add_patch(Rectangle((x,face),width,1,facecolor=COLORS['pad']))
@@ -87,12 +90,13 @@ def main():
     dim(ax,(0,-2.6),(0,2.6),'5.2',(8,0))
     dim(ax,(40,-9),(40,9),'18.0',(9,0))
     dim(ax,(0,-25),(40,-25),'40.0',(0,-3))
-    dim(ax,(37,-31),(37+D['wide_rail_length_x'],-31),f"{D['wide_rail_length_x']:.1f}",(0,-3))
+    dim(ax,(primary_x0,-31),(primary_x1,-31),f"{D['primary_rail_length_x']:.1f}",(0,-3))
+    dim(ax,(wide_x0,-36),(wide_x1,-36),f"{D['wide_rail_length_x']:.1f}",(0,-3))
     ax.text(0,22,'NARROW',ha='center',fontsize=12,weight='bold',color=COLORS['ink'])
     ax.text(40,22,'WIDE',ha='center',fontsize=12,weight='bold',color=COLORS['ink'])
     ax.text(0,27,'17.2 open',ha='center',fontsize=11,color='#4b6072')
     ax.text(40,27,'30.0 open',ha='center',fontsize=11,color='#4b6072')
-    ax.set(xlim=(-14,97),ylim=(-40,34));ax.set_aspect('equal');ax.axis('off')
+    ax.set(xlim=(-28,97),ylim=(-45,34));ax.set_aspect('equal');ax.axis('off')
     ax.set_title('Contact cross-section · closed position',fontsize=16,color=COLORS['ink'],pad=20)
 
     bx.add_patch(Rectangle((0,0),12,15,facecolor='#dbe8f2',edgecolor=COLORS['body'],lw=2))
@@ -119,3 +123,4 @@ def main():
 
 
 if __name__=='__main__':main()
+

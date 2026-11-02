@@ -51,6 +51,9 @@ observed = fit_mask(mask.astype(bool),'vial')
 print(json.dumps(dict(profile=C.FINGER_SET,primary_gap=[2*C.PAD_FACE,2*(C.PAD_FACE+C.JAW_OPEN)],
     secondary_gap=[2*D.CAP_FACE,2*(D.CAP_FACE+C.JAW_OPEN)],stroke=C.JAW_STROKE,
     stock_width=C.FINGER_WIDTH,wide_stock=D.CAP_OUTER_WIDTH,wide_rail=D.WIDE_RAIL_LENGTH,
+    primary_rail=D.PRIMARY_RAIL_LENGTH,primary_span=D.PRIMARY_RAIL_SPAN,
+    primary_profile=D.PRIMARY_PAD_PROFILE,
+    primary_extensions=[name for name,*_ in D.extra_boxes(1) if name.startswith('Primary')],
     backing=D.CAP_OUTER_WIDTH-D.CAP_FACE-C.PAD_T,bridge=D.BRIDGE_LENGTH,
     vial=[2*C.VIAL_RADIUS,C.VIAL_LENGTH],offsets={k:D.tool_offset(k).tolist() for k in ('cube','vial','cap')},
     fit={k:jaw(k) for k in ('screw','cube','vial','cap')},cube16=jaw('cube',.016),
@@ -130,6 +133,20 @@ class DualZoneProfileTests(unittest.TestCase):
         # Pad spans 34.5-84.5 mm from the vial centre; inactive rail still clears the end.
         self.assertEqual(revised['inactive_collisions'], [])
 
+    def test_primary_rail_extends_only_away_from_the_wide_zone(self):
+        self.assertAlmostEqual(self.profiles['dual']['primary_rail'], .006)
+        revised = self.profiles['dual_v2']
+        self.assertAlmostEqual(revised['primary_rail'], .024)
+        self.assertAlmostEqual(revised['primary_span'][0], -.021)
+        self.assertAlmostEqual(revised['primary_span'][1], .003)
+        self.assertEqual(revised['primary_profile'], 'flat_compliant')
+        self.assertEqual(revised['primary_extensions'],
+                         ['PrimaryExtension', 'PrimaryPadExtension'])
+        # Gap and jaw target stay unchanged, preserving the cube fit contract.
+        self.assertAlmostEqual(revised['primary_gap'][0], .0052)
+        self.assertAlmostEqual(revised['primary_gap'][1], .0172)
+        self.assertAlmostEqual(revised['fit']['cube'], .0021)
+
     def test_invalid_sizes_are_rejected(self):
         self.assertTrue(all(self.profiles['dual_v2']['rejects']))
         self.assertTrue(self.profiles['dual_v2']['invalid_category'])
@@ -166,3 +183,4 @@ class DualZoneProfileTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -17,7 +17,8 @@ Sets (chosen in scene_config.py with FINGER_SET=<name>):
     universal  PAD_FACE 4.5 mm, stroke 8.5 mm ->  9 closed / 26 open  (experimental; not the installed SMC)
     dual       PAD_FACE 4 mm,   stroke 6 mm   ->  8 / 20 primary plus an offset 14 / 26 cap zone
     dual_v2    PAD_FACE 2.6 mm, stroke 6 mm   ->  5.2 / 17.2 primary (screws, cubes) plus
-               an 18 / 30 secondary zone (real vials, caps); see dual_zone.py
+               an 18 / 30 secondary zone (real vials, caps); V2.2 extends the
+               flat primary screw contact to 24 mm; see dual_zone.py
 
 See what fits, no Isaac needed (extra args are your own part widths in mm):
     FINGER_SET=cap python padded_fingers.py

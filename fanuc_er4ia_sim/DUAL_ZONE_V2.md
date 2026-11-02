@@ -16,12 +16,38 @@ per jaw and a 40 mm offset between gripping zones.
 | Finger length / plate thickness | 76 / 6 mm |
 | Root bridge length | 28.3 mm |
 | Primary/secondary zone separation | 40 mm |
+| Primary screw contact | 24 mm flat pad, X = −21 to 3 mm |
 
 The primary zone can close on a nominal 6 mm screw shaft and admits measured
 16 mm cubes with a 0.5 mm entry allowance per side when aligned to the jaws.
 The secondary zone grips the real vial diameter or the cap's narrow plug.
 It cannot pass around the cap's 31.75 mm flange; caps must stand narrow-end-up,
 with the tips above the flange.
+
+## Screw retention candidate (November 1)
+
+The October 31 50-trial benchmark placed 84 of 98 screws after retries (85.7%)
+and recorded 50 lost screw attempts. Review identified slow rotation of the
+round 6 mm shank between the flat pads during carry, rather than a pickup,
+bin-drop, or arm-jolt problem.
+
+V2.2 therefore lengthens the primary rail and compliant contact from 6 to
+24 mm. The old +3 mm edge stays fixed; the added 18 mm extends along local −Z
+in simulation (STEP −X in the printable CAD), away from the wide zone. The
+wide rail, both zone gaps, 6 mm-per-jaw stroke, pad thickness, cube targets,
+and vial/cap geometry are unchanged. The simulator represents the extra body
+and soft-pad volumes as `PrimaryExtension` and `PrimaryPadExtension` on each jaw.
+
+The contact remains flat. A shallow V-groove was not included because the
+finished TPU-and-adhesive stack is only 1 mm thick; a groove would reduce or
+redistribute that compliance, change the jaw target for the 6 mm shaft, and
+remove flat contact area from the cubes that placed successfully. A grooved
+pad should be treated as a separate insert experiment with its own squeeze and
+collision model.
+
+This is a candidate fix. The generated CAD passes the stock-actuator sweep and
+nominal object-fit checks, but no post-change Isaac benchmark or physical carry
+test has measured screw retention.
 
 The vial's wider diameter would intersect the inactive primary fingers in a
 centre grasp. The v2 plan therefore places the secondary contact 81.5 mm from
@@ -200,9 +226,10 @@ tests also cover real-size rendered-mask fitting, actuator limits, invalid
 widths, profile preservation, virtual tool offsets, inactive-finger/vial
 clearance and vial-fixture dimensions.
 
-No new Isaac dynamics or physical-robot run was performed in this integration
+No post-V2.2 Isaac dynamics or physical-robot run was performed in this integration
 environment. Numerical checks do not verify friction, grasp retention, dynamic
 release, physical mounting or full-arm collisions. Simulator identities still
 come from semantic labels, XY/yaw come from rendered masks, and simulator
 poses are used for evaluation. The physical client uses its separate camera
 recognition and controller implementation.
+

@@ -268,8 +268,9 @@ FINGER_INNER_TIP = (SCALLOP_R**2 - SCALLOP_ABOVE_TIP**2) ** 0.5
 #   universal  4.5 mm relief + 1 mm pad: 9 mm closed / 26 mm open; requires
 #              8.5 mm per-jaw travel, not the installed SMC MHZL2-16D2.
 #   dual       original offset grasp zones (primary 8--20 mm)
-#   dual_v2    revised zones: primary 5.2--17.2 mm (M6 shafts, cubes),
-#              secondary 18--30 mm (real vials, caps); see dual_zone.py
+#   dual_v2    revised zones: primary 5.2--17.2 mm (M6 shafts, cubes) with a
+#              24 mm flat screw contact, secondary 18--30 mm (real vials,
+#              caps); see dual_zone.py
 # The installed SMC's real 6 mm-per-jaw stroke remains the default. Environment
 # overrides are intended only for explicit geometry experiments.
 import os as _os
@@ -555,3 +556,4 @@ CALIBRATION_SNAPSHOT = True
 SORT_CUBE_YAWS_DEG = [0.0, 26.0, 32.0, -23.0, 14.0, -36.0]
 
 assert abs(TOOL_LENGTH - 0.293) < 1e-9, "v0.5 calibrated TCP length"
+

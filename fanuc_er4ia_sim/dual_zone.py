@@ -3,7 +3,9 @@
 Simulation prototype: no moving linkage, no increased actuator stroke.
 The secondary rail is displaced along local +Z, perpendicular to closing axis Y.
 The optional dual_v2 profile widens that rail for real-size vials and narrows
-the primary gap for screws; dual preserves Asher's original prototype.
+the primary gap for screws; dual preserves Asher's original prototype. V2.2
+extends the primary contact along local -Z, away from the wide zone, to reduce
+rotation of the round screw shank during carry.
 No CAD mounting/strength certification is implied.
 """
 import numpy as np
@@ -20,6 +22,14 @@ CAP_PICK_HEIGHT = 0.005
 # extending away from the narrow rail toward the vial's centre. A 6 mm pad let
 # the off-centre-gripped vial pivot ~45 deg; the long pad resists that twist.
 WIDE_RAIL_LENGTH = 0.050 if C.FINGER_SET == "dual_v2" else C.FINGER_THICK
+# Keep the original primary rail's +Z edge and extend only away from the wide
+# zone. The pad stays flat so the 1 mm compliant stack and cube contact remain
+# unchanged; a V-groove would require a separate squeeze/contact model.
+PRIMARY_RAIL_LENGTH = 0.024 if C.FINGER_SET == "dual_v2" else C.FINGER_THICK
+PRIMARY_EXTENSION_LENGTH = PRIMARY_RAIL_LENGTH - C.FINGER_THICK
+PRIMARY_RAIL_SPAN = (-C.FINGER_THICK/2-PRIMARY_EXTENSION_LENGTH,
+                     C.FINGER_THICK/2)
+PRIMARY_PAD_PROFILE = "flat_compliant"
 # The taller bridge stiffens the longer overhang (CAD bridge 25.8-45.8 mm).
 BRIDGE_LENGTH = 0.0383 if C.FINGER_SET == "dual_v2" else 0.020
 
@@ -28,15 +38,28 @@ def extra_boxes(sign):
     L, W, t, thick = C.FINGER_LENGTH, CAP_OUTER_WIDTH, C.PAD_T, C.FINGER_THICK
     back = CAP_FACE + t
     R = WIDE_RAIL_LENGTH
+    primary_back = C.PAD_FACE + t
+    primary_z = -(C.FINGER_THICK/2 + PRIMARY_EXTENSION_LENGTH/2)
     rail_z = ZONE_OFFSET - thick/2 + R/2  # starts at the old rail's near face
-    return [
+    wide_far = ZONE_OFFSET - thick/2 + R
+    bridge_z0, bridge_z1 = PRIMARY_RAIL_SPAN[0], wide_far
+    pieces = []
+    if PRIMARY_EXTENSION_LENGTH > 1e-12:
+        pieces.extend([
+            ("PrimaryExtension", (L, W-primary_back, PRIMARY_EXTENSION_LENGTH),
+             (L/2, sign*(W+primary_back)/2, primary_z), False),
+            ("PrimaryPadExtension", (L-C.PAD_STEP_X, t, PRIMARY_EXTENSION_LENGTH),
+             ((L+C.PAD_STEP_X)/2, sign*(C.PAD_FACE+t/2), primary_z), True),
+        ])
+    pieces.extend([
         ("CapRail", (L, W-back, R),
          (L/2, sign*(W+back)/2, rail_z), False),
         ("CapPad", (L-C.PAD_STEP_X, t, R),
          ((L+C.PAD_STEP_X)/2, sign*(CAP_FACE+t/2), rail_z), True),
-        ("Bridge", (BRIDGE_LENGTH, W-back, ZONE_OFFSET+R),
-         (BRIDGE_LENGTH/2, sign*(W+back)/2, (ZONE_OFFSET-thick+R)/2), False),
-    ]
+        ("Bridge", (BRIDGE_LENGTH, W-back, bridge_z1-bridge_z0),
+         (BRIDGE_LENGTH/2, sign*(W+back)/2, (bridge_z0+bridge_z1)/2), False),
+    ])
+    return pieces
 
 def tool_offset(category):
     result = np.asarray(C.TOOL_AXIS, float)*C.TOOL_LENGTH
@@ -149,6 +172,9 @@ def report():
               f'--{2*(f+C.JAW_OPEN)*1000:.1f} mm; jaw={jaw_target(kind)*1000:.2f} mm')
     if C.FINGER_SET == 'dual_v2':
         print(f'16 mm cube jaw target: {jaw_target("cube", .016)*1000:.2f} mm (0.5 mm/side entry clearance)')
+        print(f'Screw contact: {PRIMARY_RAIL_LENGTH*1000:g} mm flat pad, span '
+              f'{PRIMARY_RAIL_SPAN[0]*1000:g}..{PRIMARY_RAIL_SPAN[1]*1000:g} mm '
+              '(extended away from wide zone; candidate, unbenchmarked)')
         print(f'Vial: {C.VIAL_RADIUS*2000:.2f} x {C.VIAL_LENGTH*1000:.1f} mm; contact {VIAL_CONTACT_OFFSET*1000:.1f} mm from centre')
         print('Virtual vial-centre TCP: 121.5 mm from primary rail; off-centre grip stability unverified.')
     hold = vial_hold()
@@ -157,3 +183,4 @@ def report():
     print('Cap flange 31.75 mm stays BELOW the tips; this zone cannot grip the flange.')
     print('Fixed sizes/orientations only. Physics and clutter clearance require Rosie validation.')
 if __name__=='__main__': report()
+

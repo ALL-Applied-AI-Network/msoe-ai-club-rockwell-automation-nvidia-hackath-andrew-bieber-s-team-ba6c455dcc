@@ -1,8 +1,10 @@
-"""Build the CSI dual-zone V2.1 geometric prototype with CadQuery 2.7.
+"""Build the CSI dual-zone V2.2 candidate prototype with CadQuery 2.7.
 
-V2.1: the wide-zone rail and its pad run wide_rail_length_x (50 mm) along +X,
-away from the narrow rail, instead of 6 mm. A 6 mm pad let the end-gripped
-real vial pivot out of the fingers in simulation; the long pad resists that.
+V2.2 keeps the V2.1 50 mm wide-zone contact and lengthens the primary screw
+contact from 6 to 24 mm. Its existing +X edge stays fixed and the new contact
+extends along -X, away from the wide zone. The primary pad remains flat: the
+finished compliant stack is only 1 mm thick, and a groove would change both
+the known cube contact and the modeled squeeze.
 
 Millimetres throughout. This preserves the real SMC jaw's 6 mm travel and
 mounts outside its two stock D2 through-holes. It does not establish strength,
@@ -44,11 +46,11 @@ def derived_gaps():
 
 
 def rail_span(zone):
-    """X extent of a rail: the narrow rail is centred on 0; the wide rail starts
-    at its V2 near face and runs wide_rail_length_x along +X."""
+    """X extent of a rail, with both changes directed away from the other zone."""
     t = D["rail_thickness_x"]/2
     if zone == 'primary':
-        return -t, t
+        # Preserve the original near edge at +t; add screw contact along -X.
+        return t-D["primary_rail_length_x"], t
     x0 = D["rail_separation_x"]-t
     return x0, x0+D["wide_rail_length_x"]
 
@@ -66,7 +68,7 @@ def make_positive_body():
         components.append(box(x0, x1,
             face+D["finished_pad_stack_thickness"], back,
             D["rail_start_z"], D["tip_z"]))
-    components.append(box(-w, rail_span('wide')[1],
+    components.append(box(rail_span('primary')[0], rail_span('wide')[1],
         D["bridge_inner_y_closed"], back,
         D["bridge_z_start"], D["bridge_z_end"]))
     body = components[0].fuse(*components[1:]).clean()
@@ -232,9 +234,18 @@ def main():
     report['bridge_clearance_above_tip_mm'] = D['tip_z']-D['bridge_z_end']
     report['low_rail_open_envelope_mm'] = {
         'thickness_along_offset':D['rail_thickness_x'],
+        'primary_rail_length_along_offset':D['primary_rail_length_x'],
+        'primary_rail_span':list(rail_span('primary')),
         'wide_rail_length_along_offset':D['wide_rail_length_x'],
         'full_outer_width':2*(D['outer_backplane_y_closed']+D['jaw_travel_each']),
         'offset':D['rail_separation_x']}
+    report['primary_screw_contact'] = {
+        'length_mm':D['primary_rail_length_x'],
+        'span_step_x_mm':list(rail_span('primary')),
+        'extension_direction':'-X, away from the wide zone',
+        'pad_profile':'flat compliant pad',
+        'v_groove_depth_mm':D['primary_v_groove_depth'],
+        'benchmark_or_physical_retention_verified':False}
     report['nominal_object_fit'] = []
     objects = [('M6 shaft',6,'primary'),('9 mm cube',9,'primary'),
                ('10 mm cube',10,'primary'),('11 mm cube',11,'primary'),
@@ -262,10 +273,11 @@ def main():
         inactive_rail_axial_clearance_mm=grasp_bias+D['rail_separation_x']-
             D['rail_thickness_x']/2-vial_half,
         physical_retention_verified=False)
-    report['limits'] = ['No physical mounting or gripping test', 'No structural or fatigue analysis',
+    report['limits'] = ['Candidate screw-retention fix; no post-change benchmark or physical gripping test',
+                        'No physical mounting test', 'No structural or fatigue analysis',
                         'Reference is stock D2 actuator CAD, not a survey of the installed cell',
                         'Requires four finished 1 mm pads (2 narrow, 2 wide); adhesive thickness is included',
-                        'Long wide rail and bridge overhang: print strength not analysed',
+                        'Long primary/wide rails and bridge overhang: print strength not analysed',
                         'Physical TCP and both grip-zone offsets require calibration',
                         'Real vial needs end-biased grasp so inactive narrow rail clears its length']
     (ROOT/'cad_validation.json').write_text(json.dumps(report,indent=2)+'\n')
@@ -274,3 +286,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
