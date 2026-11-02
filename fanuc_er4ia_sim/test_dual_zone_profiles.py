@@ -36,7 +36,7 @@ for sign in (-1,1):
     primary = ('Primary',(C.FINGER_LENGTH,C.FINGER_WIDTH-C.PAD_FACE,C.FINGER_THICK),
                (C.FINGER_LENGTH/2,sign*(C.FINGER_WIDTH+C.PAD_FACE)/2,0.),False)
     for name,size,centre,_ in [primary]+D.extra_boxes(sign):
-        if name not in ('Primary','Bridge'):
+        if name not in ('Primary','PrimaryExtension','Bridge'):
             continue
         local = root + centre + np.array([0.,sign*D.jaw_target('vial'),0.])
         box = (flange+rotation@local,rotation,np.asarray(size)/2)
